@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { orderAPI } from '../services/api';
+import websocketService from '../services/websocket';
 
 const OrderContext = createContext();
 
@@ -74,6 +75,29 @@ export const OrderProvider = ({ children }) => {
 
   useEffect(() => {
     loadOrders();
+    
+    // Connect WebSocket
+    websocketService.connect();
+    
+    // Listen for order status updates
+    const unsubscribeStatus = websocketService.on('order-status-updated', (data) => {
+      console.log('📦 Order status updated via WebSocket:', data);
+      // Refresh orders to get updated status
+      loadOrders();
+    });
+    
+    // Listen for new orders
+    const unsubscribeCreated = websocketService.on('order-created', (data) => {
+      console.log('📦 New order created via WebSocket:', data);
+      // Refresh orders to include new order
+      loadOrders();
+    });
+    
+    return () => {
+      unsubscribeStatus();
+      unsubscribeCreated();
+      websocketService.disconnect();
+    };
   }, []);
 
   // Save orders to AsyncStorage whenever orders change
@@ -88,28 +112,47 @@ export const OrderProvider = ({ children }) => {
       // Check if user is authenticated
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
-        console.log('User not authenticated, using local orders only');
+        console.log('⚠️ User not authenticated, using local orders only');
         dispatch({ type: 'SET_LOADING', payload: false });
         return;
       }
       
+      console.log('📦 Fetching orders from API...');
       const result = await orderAPI.getUserOrders();
-      if (result.success) {
-        dispatch({ type: 'LOAD_ORDERS', payload: result.data });
+      console.log('📦 Orders API response:', result);
+      
+      if (result && result.success) {
+        const orders = result.data || [];
+        console.log(`✅ Loaded ${orders.length} orders from API`);
+        
+        // Normalize order data - ensure orderStatus field exists
+        const normalizedOrders = orders.map(order => ({
+          ...order,
+          orderStatus: order.orderStatus || order.status || 'pending',
+          status: order.status || order.orderStatus || 'pending'
+        }));
+        
+        dispatch({ type: 'LOAD_ORDERS', payload: normalizedOrders });
       } else {
-        throw new Error(result.message || 'Failed to load orders');
+        const errorMsg = result?.message || 'Failed to load orders';
+        console.error('❌ Orders API error:', errorMsg);
+        throw new Error(errorMsg);
       }
     } catch (error) {
-      console.error('Error loading orders:', error);
+      console.error('❌ Error loading orders:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
       
       // If it's an authentication error, just use local storage
-      if (error.message && error.message.includes('Access denied')) {
-        console.log('User not authenticated, using local orders only');
+      if (error.message && (error.message.includes('Access denied') || error.message.includes('401'))) {
+        console.log('⚠️ User not authenticated, using local orders only');
         dispatch({ type: 'SET_LOADING', payload: false });
         return;
       }
       
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to load orders' });
+      dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to load orders' });
     }
   };
 
@@ -125,18 +168,42 @@ export const OrderProvider = ({ children }) => {
     try {
       console.log('📦 Creating order:', orderData);
       
+      // Check authentication
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.error('❌ No auth token found');
+        throw new Error('Please login to place an order');
+      }
+      
+      console.log('✅ Auth token found, proceeding with order creation');
+      
       const result = await orderAPI.createOrder(orderData);
+      
+      console.log('📦 Order API response:', result);
+      
       if (result.success) {
         dispatch({ type: 'ADD_ORDER', payload: result.data });
         console.log('✅ Order created successfully:', result.data.orderNumber);
         return { success: true, data: result.data };
       } else {
-        throw new Error(result.message || 'Failed to create order');
+        const errorMsg = result.message || 'Failed to create order';
+        console.error('❌ Order creation failed:', errorMsg);
+        throw new Error(errorMsg);
       }
     } catch (error) {
-      console.error('Error creating order:', error);
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to create order' });
-      return { success: false, message: error.message };
+      console.error('❌ Error creating order:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+      
+      dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to create order' });
+      
+      // Return detailed error
+      return { 
+        success: false, 
+        message: error.message || 'Failed to create order. Please check your connection and try again.' 
+      };
     }
   };
 
@@ -183,7 +250,25 @@ export const OrderProvider = ({ children }) => {
   };
 
   const getOrdersByStatus = (status) => {
-    return state.orders.filter(order => order.orderStatus === status);
+    // Map UI status filters to backend status values
+    const statusMap = {
+      'all': null, // Show all
+      'processing': ['pending', 'confirmed', 'preparing'],
+      'shipped': ['out_for_delivery'],
+      'delivered': ['delivered'],
+      'cancelled': ['cancelled']
+    };
+    
+    if (status === 'all') {
+      return state.orders;
+    }
+    
+    const statusesToMatch = statusMap[status] || [status];
+    
+    return state.orders.filter(order => {
+      const orderStatus = (order.orderStatus || order.status || '').toLowerCase();
+      return statusesToMatch.some(s => s.toLowerCase() === orderStatus);
+    });
   };
 
   const getRecentOrders = (limit = 5) => {

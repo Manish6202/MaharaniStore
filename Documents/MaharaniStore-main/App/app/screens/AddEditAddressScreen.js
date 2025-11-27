@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { userProfileAPI } from '../services/api';
 
@@ -20,46 +21,22 @@ const AddEditAddressScreen = ({ navigation, route }) => {
   
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    type: 'home',
     name: '',
     phone: '',
-    address: '',
-    landmark: '',
-    city: '',
-    state: '',
     pincode: '',
+    cityState: '',
+    address: '',
     isDefault: false,
   });
-
-  // Address types
-  const addressTypes = [
-    { label: 'Home', value: 'home', icon: '🏠' },
-    { label: 'Work', value: 'work', icon: '🏢' },
-    { label: 'Other', value: 'other', icon: '📍' },
-  ];
-
-  // Indian states
-  const states = [
-    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-    'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
-    'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya',
-    'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim',
-    'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand',
-    'West Bengal', 'Delhi', 'Chandigarh', 'Puducherry', 'Lakshadweep',
-    'Daman and Diu', 'Dadra and Nagar Haveli', 'Andaman and Nicobar Islands'
-  ];
 
   useEffect(() => {
     if (isEdit && address) {
       setFormData({
-        type: address.type || 'home',
         name: address.name || '',
         phone: address.phone || '',
-        address: address.address || '',
-        landmark: address.landmark || '',
-        city: address.city || '',
-        state: address.state || '',
         pincode: address.pincode || '',
+        cityState: `${address.city || ''}${address.state ? `, ${address.state}` : ''}`,
+        address: address.address || '',
         isDefault: address.isDefault || false,
       });
     }
@@ -75,27 +52,12 @@ const AddEditAddressScreen = ({ navigation, route }) => {
   const handleSave = async () => {
     // Validation
     if (!formData.name.trim()) {
-      Alert.alert('Error', 'Please enter the contact name');
+      Alert.alert('Error', 'Please enter your full name');
       return;
     }
 
     if (!formData.phone.trim() || !/^[6-9]\d{9}$/.test(formData.phone)) {
-      Alert.alert('Error', 'Please enter a valid 10-digit phone number');
-      return;
-    }
-
-    if (!formData.address.trim()) {
-      Alert.alert('Error', 'Please enter the address');
-      return;
-    }
-
-    if (!formData.city.trim()) {
-      Alert.alert('Error', 'Please enter the city');
-      return;
-    }
-
-    if (!formData.state.trim()) {
-      Alert.alert('Error', 'Please select the state');
+      Alert.alert('Error', 'Please enter a valid 10-digit mobile number');
       return;
     }
 
@@ -104,103 +66,44 @@ const AddEditAddressScreen = ({ navigation, route }) => {
       return;
     }
 
+    if (!formData.cityState.trim()) {
+      Alert.alert('Error', 'Please enter city & state');
+      return;
+    }
+
+    if (!formData.address.trim()) {
+      Alert.alert('Error', 'Please enter your full address');
+      return;
+    }
+
     setSaving(true);
     try {
+      const addressData = {
+        name: formData.name,
+        phone: formData.phone,
+        pincode: formData.pincode,
+        city: formData.cityState.split(',')[0]?.trim() || '',
+        state: formData.cityState.split(',')[1]?.trim() || '',
+        address: formData.address,
+        isDefault: formData.isDefault,
+      };
+
       if (isEdit) {
-        await userProfileAPI.updateAddress(address._id, formData);
-        console.log('✅ Address updated');
+        await userProfileAPI.updateAddress(address._id, addressData);
+        Alert.alert('Success', 'Address updated successfully!');
       } else {
-        await userProfileAPI.addAddress(formData);
-        console.log('✅ Address added');
+        await userProfileAPI.addAddress(addressData);
+        Alert.alert('Success', 'Address added successfully!');
       }
       
-      Alert.alert(
-        'Success',
-        `Address ${isEdit ? 'updated' : 'added'} successfully!`,
-        [
-          { 
-            text: 'Done', 
-            onPress: () => {
-              // Navigate to Home screen (which contains BottomTabNavigator with Profile tab)
-              navigation.navigate('Home', { screen: 'Profile' });
-            }
-          },
-          { 
-            text: 'Add More', 
-            onPress: () => {
-              // Stay on current screen to add more addresses
-              setFormData({
-                type: 'home',
-                name: '',
-                phone: '',
-                address: '',
-                landmark: '',
-                city: '',
-                state: '',
-                pincode: '',
-                isDefault: false,
-              });
-            }
-          }
-        ]
-      );
+      navigation.goBack();
     } catch (error) {
       console.error('❌ Error saving address:', error);
       Alert.alert('Error', `Failed to ${isEdit ? 'update' : 'add'} address. Please try again.`);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
-
-  const renderAddressTypeSelector = () => (
-    <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>Address Type</Text>
-      <View style={styles.typeContainer}>
-        {addressTypes.map((type) => (
-          <TouchableOpacity
-            key={type.value}
-            style={[
-              styles.typeOption,
-              formData.type === type.value && styles.typeOptionSelected
-            ]}
-            onPress={() => handleInputChange('type', type.value)}
-          >
-            <Text style={styles.typeIcon}>{type.icon}</Text>
-            <Text style={[
-              styles.typeText,
-              formData.type === type.value && styles.typeTextSelected
-            ]}>
-              {type.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderStateSelector = () => (
-    <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>State *</Text>
-      <ScrollView style={styles.stateContainer} nestedScrollEnabled>
-        {states.map((state) => (
-          <TouchableOpacity
-            key={state}
-            style={[
-              styles.stateOption,
-              formData.state === state && styles.stateOptionSelected
-            ]}
-            onPress={() => handleInputChange('state', state)}
-          >
-            <Text style={[
-              styles.stateText,
-              formData.state === state && styles.stateTextSelected
-            ]}>
-              {state}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -214,140 +117,112 @@ const AddEditAddressScreen = ({ navigation, route }) => {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.backButtonText}>← Back</Text>
+            <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {isEdit ? 'Edit Address' : 'Add New Address'}
-          </Text>
-          <TouchableOpacity 
+          <Text style={styles.headerTitle}>Add New Address</Text>
+          <View style={styles.placeholder} />
+        </View>
+
+        <ScrollView 
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.contentContainer}
+        >
+          {/* Full Name */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your full name"
+              placeholderTextColor="#888888"
+              value={formData.name}
+              onChangeText={(text) => handleInputChange('name', text)}
+            />
+          </View>
+
+          {/* Mobile Number */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>10-digit Mobile Number</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your mobile number"
+              placeholderTextColor="#888888"
+              value={formData.phone}
+              onChangeText={(text) => handleInputChange('phone', text)}
+              keyboardType="phone-pad"
+              maxLength={10}
+            />
+          </View>
+
+          {/* Pincode and City & State */}
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, styles.halfWidth]}>
+              <Text style={styles.label}>Pincode</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter Pincode"
+                placeholderTextColor="#888888"
+                value={formData.pincode}
+                onChangeText={(text) => handleInputChange('pincode', text)}
+                keyboardType="numeric"
+                maxLength={6}
+              />
+            </View>
+            <View style={[styles.inputGroup, styles.halfWidth]}>
+              <Text style={styles.label}>City & State</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter City & State"
+                placeholderTextColor="#888888"
+                value={formData.cityState}
+                onChangeText={(text) => handleInputChange('cityState', text)}
+              />
+            </View>
+          </View>
+
+          {/* Full Address */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>House No., Building Name, Street, Landmark</Text>
+            <TextInput
+              style={styles.textArea}
+              placeholder="Enter your full address"
+              placeholderTextColor="#888888"
+              value={formData.address}
+              onChangeText={(text) => handleInputChange('address', text)}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Default Address Toggle */}
+          <View style={styles.toggleContainer}>
+            <Text style={styles.toggleLabel}>Make this my default address</Text>
+            <Switch
+              value={formData.isDefault}
+              onValueChange={(value) => handleInputChange('isDefault', value)}
+              trackColor={{ false: '#D1D5DB', true: '#FF9933' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+
+        {/* Footer Button */}
+        <View style={styles.footer}>
+          <TouchableOpacity
             style={[styles.saveButton, saving && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.saveButtonText}>Save</Text>
+              <Text style={styles.saveButtonText}>Save Address</Text>
             )}
           </TouchableOpacity>
         </View>
-
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Address Type */}
-          {renderAddressTypeSelector()}
-
-          {/* Contact Information */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Contact Information</Text>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Contact Name *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.name}
-                onChangeText={(text) => handleInputChange('name', text)}
-                placeholder="Enter contact name"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Phone Number *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.phone}
-                onChangeText={(text) => handleInputChange('phone', text)}
-                placeholder="Enter 10-digit phone number"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="numeric"
-                maxLength={10}
-              />
-            </View>
-          </View>
-
-          {/* Address Details */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Address Details</Text>
-            
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Address *</Text>
-              <TextInput
-                style={[styles.textInput, styles.textArea]}
-                value={formData.address}
-                onChangeText={(text) => handleInputChange('address', text)}
-                placeholder="Enter complete address"
-                placeholderTextColor="#9CA3AF"
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Landmark (Optional)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={formData.landmark}
-                onChangeText={(text) => handleInputChange('landmark', text)}
-                placeholder="e.g., Near Metro Station"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-
-            <View style={styles.row}>
-              <View style={[styles.inputGroup, styles.halfWidth]}>
-                <Text style={styles.inputLabel}>City *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={formData.city}
-                  onChangeText={(text) => handleInputChange('city', text)}
-                  placeholder="Enter city"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-
-              <View style={[styles.inputGroup, styles.halfWidth]}>
-                <Text style={styles.inputLabel}>Pincode *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={formData.pincode}
-                  onChangeText={(text) => handleInputChange('pincode', text)}
-                  placeholder="Enter pincode"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  maxLength={6}
-                />
-              </View>
-            </View>
-
-            {/* State Selector */}
-            {renderStateSelector()}
-          </View>
-
-          {/* Default Address Option */}
-          <View style={styles.section}>
-            <TouchableOpacity
-              style={styles.defaultOption}
-              onPress={() => handleInputChange('isDefault', !formData.isDefault)}
-            >
-              <View style={styles.checkboxContainer}>
-                <View style={[
-                  styles.checkbox,
-                  formData.isDefault && styles.checkboxSelected
-                ]}>
-                  {formData.isDefault && (
-                    <Text style={styles.checkmark}>✓</Text>
-                  )}
-                </View>
-                <View style={styles.checkboxTextContainer}>
-                  <Text style={styles.checkboxTitle}>Set as Default Address</Text>
-                  <Text style={styles.checkboxSubtitle}>
-                    This will be used for all future deliveries
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -356,7 +231,7 @@ const AddEditAddressScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FCFCFC',
   },
   keyboardView: {
     flex: 1,
@@ -365,178 +240,136 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    height: 64,
+    paddingHorizontal: 16,
+    backgroundColor: '#FCFCFC',
   },
   backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  backButtonText: {
-    fontSize: 16,
-    color: '#6200EE',
-    fontWeight: '600',
+  backIcon: {
+    fontSize: 24,
+    color: '#212121',
   },
   headerTitle: {
+    flex: 1,
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-  },
-  saveButton: {
-    backgroundColor: '#6200EE',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  saveButtonDisabled: {
-    backgroundColor: '#9CA3AF',
-  },
-  saveButtonText: {
-    fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#212121',
+    textAlign: 'center',
+    paddingRight: 40,
   },
-  scrollView: {
+  placeholder: {
+    width: 40,
+  },
+  content: {
     flex: 1,
   },
-  section: {
-    backgroundColor: '#FFFFFF',
-    marginTop: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 16,
+  contentContainer: {
+    padding: 16,
+    paddingTop: 20,
+    paddingBottom: 100,
   },
   inputGroup: {
     marginBottom: 20,
   },
-  inputLabel: {
+  label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: '500',
+    color: '#212121',
     marginBottom: 8,
   },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1F2937',
+  input: {
+    width: '100%',
+    height: 56,
     backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E6E2DB',
+    paddingHorizontal: 16,
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#212121',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   textArea: {
-    height: 80,
-    textAlignVertical: 'top',
+    width: '100%',
+    minHeight: 128,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E6E2DB',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#212121',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 16,
   },
   halfWidth: {
     flex: 1,
   },
-  typeContainer: {
+  toggleContainer: {
     flexDirection: 'row',
-    gap: 12,
-  },
-  typeOption: {
-    flex: 1,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
-  },
-  typeOptionSelected: {
-    backgroundColor: '#6200EE',
-    borderColor: '#6200EE',
-  },
-  typeIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  typeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  typeTextSelected: {
-    color: '#FFFFFF',
-  },
-  stateContainer: {
-    maxHeight: 200,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-  },
-  stateOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  stateOptionSelected: {
-    backgroundColor: '#F3F4F6',
-  },
-  stateText: {
-    fontSize: 14,
-    color: '#374151',
-  },
-  stateTextSelected: {
-    color: '#6200EE',
-    fontWeight: '600',
-  },
-  defaultOption: {
     paddingVertical: 8,
+    marginTop: 8,
   },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  toggleLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#212121',
   },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
+  bottomSpacing: {
+    height: 24,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FCFCFC',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E6E2DB',
+  },
+  saveButton: {
+    width: '100%',
+    height: 56,
+    backgroundColor: '#FF9933',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    shadowColor: '#FF9933',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  checkboxSelected: {
-    backgroundColor: '#6200EE',
-    borderColor: '#6200EE',
+  saveButtonDisabled: {
+    opacity: 0.7,
   },
-  checkmark: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  checkboxTextContainer: {
-    flex: 1,
-  },
-  checkboxTitle: {
+  saveButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
-  checkboxSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
 });
 

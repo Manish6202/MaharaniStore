@@ -18,9 +18,15 @@ import GroceryScreen from "./app/screens/GroceryScreen";
 import CartScreen from "./app/screens/CartScreen";
 import CheckoutScreen from "./app/screens/CheckoutScreen";
 import OrdersScreen from "./app/screens/OrdersScreen";
+import OrderDetailScreen from "./app/screens/OrderDetailScreen";
 import EditProfileScreen from "./app/screens/EditProfileScreen";
 import AddressManagementScreen from "./app/screens/AddressManagementScreen";
 import AddEditAddressScreen from "./app/screens/AddEditAddressScreen";
+import SelectAddressScreen from "./app/screens/SelectAddressScreen";
+import PaymentOptionsScreen from "./app/screens/PaymentOptionsScreen";
+import ReviewOrderScreen from "./app/screens/ReviewOrderScreen";
+import PaymentSuccessScreen from "./app/screens/PaymentSuccessScreen";
+import NoInternetScreen from "./app/screens/NoInternetScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -94,6 +100,13 @@ export default function App() {
             component={OrdersScreen}
             options={{ headerShown: false }}
           />
+          
+          {/* Order Detail Screen */}
+          <Stack.Screen
+            name="OrderDetail"
+            component={OrderDetailScreen}
+            options={{ headerShown: false }}
+          />
 
           {/* Profile Management Screens */}
           <Stack.Screen
@@ -114,6 +127,38 @@ export default function App() {
           <Stack.Screen
             name="EditAddress"
             component={AddEditAddressScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AddEditAddress"
+            component={AddEditAddressScreen}
+            options={{ headerShown: false }}
+          />
+          
+          {/* Checkout Flow Screens */}
+          <Stack.Screen
+            name="SelectAddress"
+            component={SelectAddressScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PaymentOptions"
+            component={PaymentOptionsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ReviewOrder"
+            component={ReviewOrderScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="PaymentSuccess"
+            component={PaymentSuccessScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="NoInternet"
+            component={NoInternetScreen}
             options={{ headerShown: false }}
           />
           

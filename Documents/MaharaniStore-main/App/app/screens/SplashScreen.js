@@ -1,30 +1,21 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  Animated, 
   Dimensions 
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen({ navigation }) {
-  const progressAnim = useRef(new Animated.Value(0)).current;
   const { isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
-    // Progress bar animation (0% to 45% in 2 seconds)
-    Animated.timing(progressAnim, {
-      toValue: 1,
-      duration: 2000,
-      useNativeDriver: false,
-    }).start();
-
-    // 2 sec ke baad check karo kahan jana hai
+    // 2 seconds ke baad check karo kahan jana hai
     const timer = setTimeout(async () => {
       try {
         // Wait for auth to finish loading
@@ -45,7 +36,7 @@ export default function SplashScreen({ navigation }) {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [navigation, progressAnim, isAuthenticated, loading]);
+  }, [navigation, isAuthenticated, loading]);
 
   const navigateToNextScreen = async () => {
     try {
@@ -70,92 +61,72 @@ export default function SplashScreen({ navigation }) {
     }
   };
 
-  const progressWidth = progressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '45%'],
-  });
-
   return (
-    <LinearGradient
-      colors={['#FADADD', '#E6E6FA']} // brand-blush to brand-lavender
-      style={styles.container}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-    >
-      <View style={styles.content}>
-        {/* Logo with shadow effect */}
-        <View style={styles.logoContainer}>
-          <Text style={styles.title}>Maharani</Text>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#FFF9E8', '#FFDAB9']} // Radial gradient effect - from light cream to peach
+        style={styles.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        locations={[0, 1]}
+      >
+        <View style={styles.content}>
+          <View style={styles.textContainer}>
+            {/* Main Title */}
+            <Text style={styles.title}>MAHARANI</Text>
+            
+            {/* Subtitle */}
+            <Text style={styles.subtitle}>Daily Store + Beauty Store</Text>
+            
+            {/* Divider Line */}
+            <View style={styles.divider} />
+          </View>
         </View>
-        
-        {/* Tagline */}
-        <Text style={styles.tagline}>Everyday Royalty</Text>
-      </View>
-
-      {/* Loading Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBarBackground}>
-          <Animated.View 
-            style={[
-              styles.progressBarFill,
-              { width: progressWidth }
-            ]} 
-          />
-        </View>
-      </View>
-    </LinearGradient>
+      </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
+    minHeight: height,
+  },
+  gradient: {
+    flex: 1,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  textContainer: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoContainer: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
-  },
   title: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#5E4B56', // brand-plum
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#4F2C1D', // Dark brown color
     letterSpacing: 0.5,
     textAlign: 'center',
   },
-  tagline: {
-    fontSize: 18,
-    color: 'rgba(94, 75, 86, 0.8)', // brand-plum with opacity
-    marginTop: 8,
+  subtitle: {
+    fontSize: 16,
     fontWeight: '400',
+    color: '#4F2C1D', // Dark brown color
+    textAlign: 'center',
+    marginTop: 8,
   },
-  progressContainer: {
-    position: 'absolute',
-    bottom: 64,
-    width: width - 64,
-    paddingHorizontal: 32,
-  },
-  progressBarBackground: {
-    width: '100%',
-    height: 8,
-    backgroundColor: 'rgba(94, 75, 86, 0.1)', // brand-plum/10
-    borderRadius: 9999,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: 'rgba(94, 75, 86, 0.4)', // brand-plum/40
-    borderRadius: 9999,
+  divider: {
+    width: 64,
+    height: 1,
+    backgroundColor: '#4F2C1D', // Dark brown color
+    marginTop: 8,
   },
 });

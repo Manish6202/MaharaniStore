@@ -10,9 +10,16 @@ const getWishlist = async (req, res) => {
     
     const wishlist = await Wishlist.getOrCreateWishlist(userId);
     
+    // Normalize response - convert products to items for frontend compatibility
+    const normalizedWishlist = {
+      ...wishlist.toObject(),
+      items: wishlist.products || [],
+      products: wishlist.products || [] // Keep both for backward compatibility
+    };
+    
     res.json({
       success: true,
-      data: wishlist,
+      data: normalizedWishlist,
       message: 'Wishlist retrieved successfully'
     });
   } catch (error) {

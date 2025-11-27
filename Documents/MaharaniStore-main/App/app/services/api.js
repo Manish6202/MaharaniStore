@@ -2,10 +2,18 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Platform-specific base URL
+// For Android emulator: use 10.0.2.2
+// For Android physical device: use your computer's IP address (e.g., 192.168.1.100)
+// For iOS simulator: use localhost
+// For iOS physical device: use your computer's IP address
 const BASE_URL = Platform.select({
-  ios: 'http://localhost:5001/api',
-  android: 'http://10.0.2.2:5001/api',
+  ios: __DEV__ ? 'http://localhost:5001/api' : 'http://localhost:5001/api',
+  android: __DEV__ ? 'http://10.0.2.2:5001/api' : 'http://10.0.2.2:5001/api',
 });
+
+// Alternative: Use environment variable or config
+// You can also set this dynamically based on your network
+// const BASE_URL = 'http://YOUR_COMPUTER_IP:5001/api';
 
 // API utility function
 const apiCall = async (endpoint, options = {}) => {
@@ -17,28 +25,56 @@ const apiCall = async (endpoint, options = {}) => {
     const token = await AsyncStorage.getItem('authToken');
     
     const config = {
+      method: options.method || 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` }),
         ...options.headers,
       },
-      ...options,
+      ...(options.body && { body: options.body }),
     };
 
+    console.log('📤 Request Config:', {
+      url,
+      method: config.method,
+      headers: config.headers,
+      hasBody: !!config.body
+    });
+
     const response = await fetch(url, config);
-    const data = await response.json();
+    
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type');
+    let data;
+    
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      console.warn('⚠️ Non-JSON response:', text);
+      throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+    }
     
     console.log('📥 API Response:', response.status, data);
 
     if (!response.ok) {
-      throw new Error(data.message || `HTTP Error: ${response.status}`);
+      const errorMessage = data.message || data.error || `HTTP Error: ${response.status}`;
+      console.error('❌ API Error Response:', errorMessage);
+      throw new Error(errorMessage);
     }
 
     return data;
 
   } catch (error) {
     console.error('❌ API Error:', error);
-    throw new Error(error.message || 'Network error occurred');
+    
+    // Better error messages
+    if (error.message.includes('Network request failed') || error.message.includes('Failed to fetch')) {
+      throw new Error('Network connection failed. Please check:\n1. Backend server is running\n2. Internet connection is active\n3. Correct API URL configured');
+    }
+    
+    throw new Error(error.message || 'Network error occurred. Please try again.');
   }
 };
 
@@ -241,16 +277,27 @@ export const userProfileAPI = {
 export const orderAPI = {
   // Create new order
   createOrder: async (orderData) => {
-    return await apiCall('/orders', {
-      method: 'POST',
-      body: JSON.stringify(orderData)
-    });
+    console.log('📦 OrderAPI.createOrder called with:', JSON.stringify(orderData, null, 2));
+    try {
+      const result = await apiCall('/orders', {
+        method: 'POST',
+        body: JSON.stringify(orderData)
+      });
+      console.log('✅ OrderAPI.createOrder success:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ OrderAPI.createOrder error:', error);
+      throw error;
+    }
   },
 
   // Get user's orders
   getUserOrders: async (status = '') => {
-    const query = status ? `?status=${status}` : '';
-    return await apiCall(`/orders/user${query}`);
+    const query = status && status !== 'all' ? `?status=${status}` : '';
+    console.log('📦 Fetching user orders with query:', query);
+    const result = await apiCall(`/orders/user${query}`);
+    console.log('📦 User orders API response:', result);
+    return result;
   },
 
   // Get single order

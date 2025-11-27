@@ -221,7 +221,36 @@ export const WishlistProvider = ({ children }) => {
       }
       
       const result = await wishlistAPI.getWishlist();
-      dispatch({ type: 'LOAD_WISHLIST', payload: result.data.products || [] });
+      console.log('📦 Wishlist API response:', result);
+      
+      if (result && result.success) {
+        // Handle both 'items' and 'products' from backend
+        const wishlistData = result.data || {};
+        const items = wishlistData.items || wishlistData.products || [];
+        
+        // Extract product objects from items array
+        const normalizedItems = items.map(item => {
+          // If item has a nested product object, extract it
+          if (item.product && typeof item.product === 'object') {
+            return {
+              ...item.product,
+              _id: item.product._id || item.product,
+              addedAt: item.addedAt || new Date().toISOString()
+            };
+          }
+          // If item is already a product object
+          return {
+            ...item,
+            _id: item._id || item.product,
+            addedAt: item.addedAt || new Date().toISOString()
+          };
+        });
+        
+        console.log(`✅ Loaded ${normalizedItems.length} items from wishlist API`);
+        dispatch({ type: 'LOAD_WISHLIST', payload: normalizedItems });
+      } else {
+        throw new Error(result?.message || 'Failed to get wishlist');
+      }
     } catch (error) {
       console.error('Error syncing wishlist with backend:', error);
       

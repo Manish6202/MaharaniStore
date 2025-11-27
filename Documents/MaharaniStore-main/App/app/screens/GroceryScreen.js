@@ -11,132 +11,75 @@ import {
   Alert,
   FlatList,
   Dimensions,
-  TextInput
 } from 'react-native';
 import { productAPI } from '../services/api';
 import { useCart } from '../context/CartContext';
-import { useWishlist } from '../context/WishlistContext';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 45) / 2; // 2 columns with padding
+const CARD_WIDTH = (width - 48) / 2; // 2 columns with padding
 
-const GroceryScreen = ({ navigation }) => {
+const GroceryScreen = ({ navigation, route }) => {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
-  const [selectedSubcategory, setSelectedSubcategory] = useState('All');
+  const categoryFromRoute = route?.params?.category || 'Snacks & Beverages';
+  const [selectedCategory, setSelectedCategory] = useState(categoryFromRoute);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [currentTheme, setCurrentTheme] = useState(null);
-  const { addToCart } = useCart();
-  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const { addToCart, totalItems } = useCart();
 
-  // Grocery subcategories with emoji icons and banner data
-  const subcategories = [
-    { 
-      name: 'All', 
-      icon: '🛒', 
-      fullName: 'All',
-      banner: {
-        title: 'Welcome to Maharani Store',
-        subtitle: 'Everything you need, delivered fresh',
-        color: '#6200EE',
-        textColor: '#FFFFFF'
-      }
+  const categories = [
+    'All',
+    'Vegetables',
+    'Fruits',
+    'Dairy & Breads',
+    'Snacks & Beverages',
+    'Pantry Staples',
+    'Frozen',
+    'Household',
+  ];
+
+  // Sample products data matching HTML
+  const sampleProducts = [
+    {
+      _id: '1',
+      name: 'Classic Potato Chips',
+      brand: 'Lays',
+      price: 30,
+      originalPrice: 35,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA-41JdxF4twZU4pX8rncZPPgYqyu8J1Wx98HaObtnA525TB17M0HJqPQ27XOKk5q45ASREPUdSF951IcyGEpUpVJQoR6rg-zM3v7LUAzyt1IWBwpjdQ1VwBhmNYwCTx-xbE766XouXJchmFL3OfMQyzsKrcZKBtgavtMMSXVkTt8DpJ-7RsalUvWuhOf3uS1Zd3r5o7lriQ67N-OaWE9HfhFfvLupDVEjyYx9FGE76_vZKCHV2LNDzADbcx_bGvNuaecP8DBQvjQ',
     },
-    { 
-      name: 'Ration', 
-      icon: '🍞', 
-      fullName: 'Ration & Essentials',
-      banner: {
-        title: 'Fresh Essentials',
-        subtitle: 'Up to 20% OFF on all ration items',
-        color: '#F59E0B',
-        textColor: '#FFFFFF'
-      }
+    {
+      _id: '2',
+      name: 'Classic Cola 750ml',
+      brand: 'Coca-Cola',
+      price: 40,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDUzD-auCSW_CZEEh5qZIlzwYvubS8R6WRFil1db0XMIPAe12SA56lg3D9aWxEa-WpmHVVYZ0Nkjyr6VUnk4JgBd_5jdE0mTs29iKYLWQ2q9chadooJoaMnac694WtuaLuFUYFHn0CLznBxNXM3cEmxjKJNMLhh3TyhWHqB-R2rBSmJ8kS8Xr77EdZn7KsdW0r9gDjsHwJuppSUquhXcs0Be8v-60FR-pCcs1O74kxQPiKTar6uBnv1aHsUYSvSYMK2ppRqqgdA7g',
     },
-    { 
-      name: 'Dairy', 
-      icon: '🥛', 
-      fullName: 'Dairy & Bakery',
-      banner: {
-        title: 'Fresh Milk & Dairy',
-        subtitle: 'Daily delivery of fresh dairy products',
-        color: '#3B82F6',
-        textColor: '#FFFFFF'
-      }
+    {
+      _id: '3',
+      name: 'Original Glucose Biscuits Family Pack',
+      brand: 'Parle-G',
+      price: 50,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDH-rCLIqzy4-PLaDzFaiekki-Sf9HpyK3YgMtg2maKDE5xUGhw-OZabPtdgaWtk538c5C8Cwre_fzZ5TA0A04SkNQwB7Bjyjze7NcHYBdMyMIdogtxJ6yXpOMCzXTdr4OHOEczBCe7jlY2ptFRUYIOu2Twzv4SBX6pj-m7yQqQZOaUfRwKUmNiIz-l1FwqBCKCaNrCocVdBK9dUdZTDKZy2tKtgw2DlCql1onu3uagGHg0zWbe7DvEnUGRt_gbKegqEW5TrrDgUQ',
     },
-    { 
-      name: 'Vegetables', 
-      icon: '🥬', 
-      fullName: 'Fresh Vegetables',
-      banner: {
-        title: 'Farm Fresh Vegetables',
-        subtitle: 'Organic quality, delivered daily',
-        color: '#10B981',
-        textColor: '#FFFFFF'
-      }
+    {
+      _id: '4',
+      name: 'Bhujia Sev Indian Snack',
+      brand: "Haldiram's",
+      price: 65,
+      originalPrice: 70,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCIQCxGyX7h6LdqoqO8P9zXlyqtT5tcsQlTgtJu39XfPdbKLvO0dibCTD08SeKEjyoJLCsNtHvp7QhA3Ewspn2WmWdHiXL9Ur8O4XNaSIJGR5tv371iyjOgGI1JECUz7RYIYbOOmFIaGO4yfi3VPvQ2Q4N8KDty6gO447aZuqlTGxddSrDhQ1xaan6i43JsmJK1G5UY5Q9_JUs41jOwwZmlhA9yjMWqwa4w2u_IuOYAx-cD0lPCoMFcXily37-ii_kAyaTv97Zn9A',
     },
-    { 
-      name: 'Fruits', 
-      icon: '🍎', 
-      fullName: 'Fresh Fruits',
-      banner: {
-        title: 'Seasonal Fruits',
-        subtitle: 'Sweet, juicy fruits at your doorstep',
-        color: '#F97316',
-        textColor: '#FFFFFF'
-      }
+    {
+      _id: '5',
+      name: 'Orange Delight Juice 1L',
+      brand: 'Tropicana',
+      price: 120,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBcSKO3IXt-KXbHuv4Wl0kHkl3XTNoaYwduUUJK-JWzuWQwpDHNYUJnJeG4B-PEmr8-ZLl0h5aUiEK2NXCrqWRfVIFKFWJkLQSD9ZxlH0quUsJ-TBRtlMozk8qm2SdS-kOLvFC_Oy5HTKwLf2bcXyE_l-HygA9Xk08CFr4qdIC2dKpeCUnyE_Su3qeP-HG5-GvlwN1UjWvK959m-ONhXECAA8jCbFexSGdMLBcPOVgRlrcmvIZhWpBsBKe1V61Bgn_vsFQIPr4lqQ',
     },
-    { 
-      name: 'Beverages', 
-      icon: '🥤', 
-      fullName: 'Beverages & Drinks',
-      banner: {
-        title: 'Cool Drinks',
-        subtitle: 'Beat the heat with refreshing beverages',
-        color: '#06B6D4',
-        textColor: '#FFFFFF'
-      }
-    },
-    { 
-      name: 'Snacks', 
-      icon: '🍿', 
-      fullName: 'Instant Food & Snacks',
-      banner: {
-        title: 'Crunchy Snacks',
-        subtitle: 'Perfect munching for any time',
-        color: '#EAB308',
-        textColor: '#000000'
-      }
-    },
-    { 
-      name: 'Sweets', 
-      icon: '🍭', 
-      fullName: 'Sweets & Chocolates',
-      banner: {
-        title: 'Sweet Treats',
-        subtitle: 'Festival special sweets & chocolates',
-        color: '#EC4899',
-        textColor: '#FFFFFF'
-      }
-    },
-    { 
-      name: 'Tobacco', 
-      icon: '⚠️', 
-      fullName: 'Tobacco Products',
-      banner: {
-        title: '18+ Only',
-        subtitle: 'Age verification required for purchase',
-        color: '#EF4444',
-        textColor: '#FFFFFF'
-      }
-    }
   ];
 
   useEffect(() => {
     loadGroceryProducts();
-    // Set initial theme
-    setCurrentTheme(subcategories[0].banner);
   }, []);
 
   const loadGroceryProducts = async () => {
@@ -144,48 +87,48 @@ const GroceryScreen = ({ navigation }) => {
       setLoading(true);
       const result = await productAPI.getProductsByCategory('Grocery');
       console.log('🛒 Grocery products loaded:', result);
-      setProducts(result.data || []);
-      setFilteredProducts(result.data || []);
+      if (result.success && result.data && result.data.length > 0) {
+        setProducts(result.data);
+        setFilteredProducts(result.data);
+      } else {
+        // Use sample products if API returns empty
+        setProducts(sampleProducts);
+        setFilteredProducts(sampleProducts);
+      }
     } catch (error) {
       console.error('❌ Error loading grocery products:', error);
-      Alert.alert('Error', 'Failed to load grocery products');
+      // Use sample products on error
+      setProducts(sampleProducts);
+      setFilteredProducts(sampleProducts);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubcategoryPress = (subcategory) => {
-    setSelectedSubcategory(subcategory.name);
-    setCurrentTheme(subcategory.banner);
-    filterProducts(subcategory.fullName, searchQuery);
-  };
-
-  const handleSearchChange = (text) => {
-    setSearchQuery(text);
-    const currentSubcategory = subcategories.find(s => s.name === selectedSubcategory);
-    filterProducts(currentSubcategory?.fullName || 'All', text);
-  };
-
-  const filterProducts = (subcategory, search) => {
-    let filtered = products;
-
-    // Filter by subcategory
-    if (subcategory !== 'All') {
-      filtered = filtered.filter(product => 
-        product.subcategory === subcategory
-      );
+  const handleCategoryPress = (category) => {
+    setSelectedCategory(category);
+    if (category === 'All') {
+      setFilteredProducts(products);
+    } else {
+      // Filter products by category
+      const filtered = products.filter(product => {
+        const productCategory = product.mainCategory || product.category || '';
+        const productSubcategory = product.subcategory || '';
+        const categoryLower = category.toLowerCase();
+        
+        // Match main category or subcategory
+        return productCategory.toLowerCase().includes(categoryLower) ||
+               productSubcategory.toLowerCase().includes(categoryLower) ||
+               (category === 'Vegetables' && (productCategory.includes('Vegetable') || productSubcategory.includes('Vegetable'))) ||
+               (category === 'Fruits' && (productCategory.includes('Fruit') || productSubcategory.includes('Fruit'))) ||
+               (category === 'Dairy & Breads' && (productCategory.includes('Dairy') || productCategory.includes('Bakery'))) ||
+               (category === 'Snacks & Beverages' && (productCategory.includes('Snack') || productCategory.includes('Beverage'))) ||
+               (category === 'Pantry Staples' && (productCategory.includes('Staple') || productCategory.includes('Pantry'))) ||
+               (category === 'Frozen' && productCategory.includes('Frozen')) ||
+               (category === 'Household' && productCategory.includes('Household'));
+      });
+      setFilteredProducts(filtered);
     }
-
-    // Filter by search query
-    if (search.trim()) {
-      filtered = filtered.filter(product => 
-        product.name.toLowerCase().includes(search.toLowerCase()) ||
-        product.brand.toLowerCase().includes(search.toLowerCase()) ||
-        product.description.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-
-    setFilteredProducts(filtered);
   };
 
   const handleProductPress = (product) => {
@@ -193,165 +136,59 @@ const GroceryScreen = ({ navigation }) => {
   };
 
   const handleAddToCart = (product) => {
-    if (product.stock === 0) {
-      Alert.alert('Out of Stock', 'This product is currently out of stock');
-      return;
-    }
-    
     addToCart(product);
-    Alert.alert(
-      'Added to Cart', 
-      `${product.name} has been added to your cart!`,
-      [
-        { text: 'Continue Shopping', style: 'cancel' },
-        { text: 'View Cart', onPress: () => navigation.navigate('Cart') }
-      ]
-    );
-  };
-
-  const handleToggleWishlist = (product) => {
-    if (isInWishlist(product._id)) {
-      removeFromWishlist(product._id);
-    } else {
-      addToWishlist(product);
-    }
+    Alert.alert('Added to Cart', `${product.name} has been added to your cart!`);
   };
 
   const renderProductCard = ({ item }) => (
     <TouchableOpacity
       style={styles.productCard}
       onPress={() => handleProductPress(item)}
+      activeOpacity={0.8}
     >
-      <View style={styles.imageContainer}>
+      <View style={styles.productImageContainer}>
         <Image
-          source={{ uri: productAPI.getImageUrl(item.images?.[0]) }}
+          source={{ 
+            uri: item.images?.[0] 
+              ? productAPI.getImageUrl(item.images[0])
+              : item.image 
+          }}
           style={styles.productImage}
-          resizeMode="cover"
+          resizeMode="contain"
         />
-        <TouchableOpacity
-          style={styles.wishlistButton}
-          onPress={() => handleToggleWishlist(item)}
-        >
-          <Text style={styles.wishlistIcon}>
-            {isInWishlist(item._id) ? '❤️' : '🤍'}
-          </Text>
-        </TouchableOpacity>
       </View>
       
       <View style={styles.productInfo}>
+        <Text style={styles.productBrand}>{item.brand}</Text>
         <Text style={styles.productName} numberOfLines={2}>
           {item.name}
         </Text>
-        <Text style={styles.productBrand}>{item.brand}</Text>
         
-        <View style={styles.priceContainer}>
-          <Text style={styles.productPrice}>₹{item.price}</Text>
-          <Text style={styles.productUnit}>per {item.unit}</Text>
+        <View style={styles.productFooter}>
+          <View style={styles.priceContainer}>
+            <Text style={styles.productPrice}>₹{item.price}</Text>
+            {item.originalPrice && (
+              <Text style={styles.originalPrice}>₹{item.originalPrice}</Text>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => handleAddToCart(item)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.addButtonIcon}>+</Text>
+          </TouchableOpacity>
         </View>
-
-        <View style={styles.stockContainer}>
-          <Text style={[
-            styles.stockText,
-            { color: item.stock > 0 ? '#10B981' : '#EF4444' }
-          ]}>
-            {item.stock > 0 ? `${item.stock} available` : 'Out of stock'}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.addToCartButton,
-            item.stock === 0 && styles.disabledButton
-          ]}
-          onPress={() => handleAddToCart(item)}
-          disabled={item.stock === 0}
-        >
-          <Text style={[
-            styles.addToCartButtonText,
-            item.stock === 0 && styles.disabledButtonText
-          ]}>
-            {item.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
-          </Text>
-        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
 
-  const renderSubcategoryTab = (subcategory) => {
-    const isActive = selectedSubcategory === subcategory.name;
-
-    return (
-      <TouchableOpacity
-        key={subcategory.name}
-        style={styles.subcategoryTab}
-        onPress={() => handleSubcategoryPress(subcategory)}
-      >
-        <View style={styles.subcategoryIconContainer}>
-          <Text style={[
-            styles.subcategoryIcon,
-            isActive && { color: currentTheme?.color }
-          ]}>
-            {subcategory.icon}
-          </Text>
-        </View>
-        <Text style={[
-          styles.subcategoryTabText,
-          isActive && styles.activeSubcategoryTabText,
-          isActive && { color: currentTheme?.color }
-        ]}>
-          {subcategory.name}
-        </Text>
-        {isActive && <View style={[styles.activeUnderline, { backgroundColor: currentTheme?.color }]} />}
-      </TouchableOpacity>
-    );
-  };
-
-  const renderCategoryBanner = () => {
-    const currentCategory = subcategories.find(s => s.name === selectedSubcategory);
-    if (!currentCategory) return null;
-
-    const { banner } = currentCategory;
-
-    return (
-      <View style={[styles.banner, { backgroundColor: banner.color }]}>
-        <View style={styles.bannerContent}>
-          <View style={styles.bannerTextContainer}>
-            <Text style={[styles.bannerTitle, { color: banner.textColor }]}>
-              {banner.title}
-            </Text>
-            <Text style={[styles.bannerSubtitle, { color: banner.textColor }]}>
-              {banner.subtitle}
-            </Text>
-          </View>
-          <View style={styles.bannerIconContainer}>
-            <Text style={styles.bannerIcon}>{currentCategory.icon}</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.bannerButton}>
-          <Text style={[styles.bannerButtonText, { color: banner.color }]}>
-            Shop Now
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={[styles.header, { backgroundColor: currentTheme?.color || '#6200EE' }]}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={[styles.backButtonText, { color: currentTheme?.textColor || '#FFFFFF' }]}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: currentTheme?.textColor || '#FFFFFF' }]}>Grocery</Text>
-          <View style={styles.placeholder} />
-        </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6200EE" />
-          <Text style={styles.loadingText}>Loading grocery products...</Text>
+          <ActivityIndicator size="large" color="#FF9933" />
+          <Text style={styles.loadingText}>Loading products...</Text>
         </View>
       </SafeAreaView>
     );
@@ -360,69 +197,93 @@ const GroceryScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: currentTheme?.color || '#6200EE' }]}>
+      <View style={styles.header}>
         <TouchableOpacity 
-          style={styles.backButton}
+          style={styles.headerButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={[styles.backButtonText, { color: currentTheme?.textColor || '#FFFFFF' }]}>← Back</Text>
+          <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: currentTheme?.textColor || '#FFFFFF' }]}>Grocery</Text>
-        <View style={styles.placeholder} />
+        <Text style={styles.headerTitle}>Grocery</Text>
+        <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={styles.headerButton}
+            onPress={() => {/* Handle search */}}
+          >
+            <Text style={styles.headerIcon}>🔍</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.headerButton}
+            onPress={() => navigation.navigate('Cart')}
+          >
+            <View style={styles.cartBadgeContainer}>
+              <Text style={styles.headerIcon}>🛍️</Text>
+              {totalItems > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{totalItems}</Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Search and Subcategory Container */}
-      <View style={[styles.subcategoryContainer, { backgroundColor: currentTheme?.color ? `${currentTheme.color}15` : '#fff' }]}>
-        {/* Search Bar */}
-        <View style={[styles.searchContainer, { borderColor: currentTheme?.color || '#E5E7EB' }]}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search grocery products..."
-            placeholderTextColor="#9CA3AF"
-            value={searchQuery}
-            onChangeText={handleSearchChange}
-          />
-          <View style={styles.searchIcon}>
-            <Text style={[styles.searchIconText, { color: currentTheme?.color || '#6B7280' }]}>🔍</Text>
-          </View>
-        </View>
-
-        {/* Subcategory Tabs */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.subcategoryContent}
-        >
-          {subcategories.map(renderSubcategoryTab)}
-        </ScrollView>
-
-        {/* Category Banner */}
+      <ScrollView 
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Banner Image */}
         <View style={styles.bannerContainer}>
-          {renderCategoryBanner()}
+          <Image 
+            source={{ 
+              uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDprHGCaNs6zBVY4vqd7sRIjw0xkkGWMGNBxrKPswygXcBTrXDWQloq4ncD6TkgSOC5_zJdv9lY4JnusH0wZAvnAVsowYAWygwQE6iL-v3fKF8Lgn3Hs5i4ne0LIWKjcI--VyghSAa5R3jgr1zYM9cThBh3GETLrDvObsKTHJKbGom6Dv0fQ71Puj-xSA7vB0V5dC1agDXYgQMq3CyQ9IaM9asp6ZDUMvXtmZoRqBes2SiqL_U3vbOddv9Isg4bkwri2V6EcSPJMQ'
+            }}
+            style={styles.bannerImage}
+            resizeMode="cover"
+          />
         </View>
-      </View>
 
-      {/* Products Grid */}
-      <View style={styles.productsContainer}>
-        {filteredProducts.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No products found</Text>
-            <Text style={styles.emptySubtext}>
-              Try selecting a different category
-            </Text>
-          </View>
-        ) : (
+        {/* Category Filter Chips */}
+        <View style={styles.categoryChipsContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryChipsScrollContent}
+          >
+            {categories.map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={[
+                  styles.categoryChip,
+                  selectedCategory === category && styles.categoryChipActive
+                ]}
+                onPress={() => handleCategoryPress(category)}
+              >
+                <Text style={[
+                  styles.categoryChipText,
+                  selectedCategory === category && styles.categoryChipTextActive
+                ]}>
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Products Grid */}
+        <View style={styles.productsGrid}>
           <FlatList
             data={filteredProducts}
             renderItem={renderProductCard}
             keyExtractor={(item) => item._id}
             numColumns={2}
-            columnWrapperStyle={styles.row}
+            columnWrapperStyle={styles.productRow}
             contentContainerStyle={styles.productsList}
+            scrollEnabled={false}
             showsVerticalScrollIndicator={false}
           />
-        )}
-      </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -430,30 +291,198 @@ const GroceryScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FEFDFB',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    height: 64,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#F5F3F0',
+    backgroundColor: '#FEFDFB',
   },
-  backButton: {
-    padding: 5,
+  headerButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  backIcon: {
+    fontSize: 24,
+    color: '#333333',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333333',
+    marginLeft: 8,
   },
-  placeholder: {
-    width: 50,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headerIcon: {
+    fontSize: 24,
+    color: '#333333',
+  },
+  cartBadgeContainer: {
+    position: 'relative',
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FF9933',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cartBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  content: {
+    flex: 1,
+  },
+  bannerContainer: {
+    height: 200,
+    width: '100%',
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  categoryChipsContainer: {
+    paddingTop: 16,
+    paddingHorizontal: 16,
+  },
+  categoryChipsScrollContent: {
+    gap: 10,
+    paddingBottom: 4,
+  },
+  categoryChip: {
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#F5F3F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  categoryChipActive: {
+    backgroundColor: '#FF9933',
+  },
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#8A7A60',
+  },
+  categoryChipTextActive: {
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  productsGrid: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 100,
+  },
+  productRow: {
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  productsList: {
+    paddingBottom: 20,
+  },
+  productCard: {
+    width: CARD_WIDTH,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  productImageContainer: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#F3F4F6',
+    padding: 8,
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  productInfo: {
+    padding: 12,
+    paddingTop: 0,
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  productBrand: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#8A7A60',
+    marginBottom: 4,
+  },
+  productName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    lineHeight: 20,
+    height: 40,
+    marginBottom: 8,
+  },
+  productFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 'auto',
+    paddingTop: 8,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  productPrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#333333',
+  },
+  originalPrice: {
+    fontSize: 12,
+    color: '#8A7A60',
+    textDecorationLine: 'line-through',
+  },
+  addButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FF9933',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonIcon: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   loadingContainer: {
     flex: 1,
@@ -461,234 +490,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 16,
-    color: '#6B7280',
-  },
-  subcategoryContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingVertical: 8,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    marginHorizontal: 15,
-    marginBottom: 12,
-    paddingHorizontal: 12,
-    height: 40,
-    borderWidth: 1,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#374151',
-    paddingVertical: 0,
-  },
-  searchIcon: {
-    marginLeft: 8,
-  },
-  searchIconText: {
-    fontSize: 16,
-  },
-  subcategoryContent: {
-    paddingHorizontal: 15,
-    flexDirection: 'row',
-  },
-  subcategoryTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginRight: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 80,
-  },
-  subcategoryIconContainer: {
-    marginBottom: 4,
-  },
-  subcategoryIcon: {
-    fontSize: 20,
-  },
-  subcategoryTabText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  activeSubcategoryTabText: {
-    fontWeight: '600',
-  },
-  activeUnderline: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    borderRadius: 1,
-  },
-  // Banner Styles
-  bannerContainer: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-  },
-  banner: {
-    borderRadius: 12,
-    padding: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  bannerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  bannerTextContainer: {
-    flex: 1,
-  },
-  bannerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  bannerSubtitle: {
-    fontSize: 14,
-    opacity: 0.9,
-  },
-  bannerIconContainer: {
-    marginLeft: 12,
-  },
-  bannerIcon: {
-    fontSize: 32,
-  },
-  bannerButton: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-  },
-  bannerButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  productsContainer: {
-    flex: 1,
-    paddingHorizontal: 15,
-  },
-  productsList: {
-    paddingVertical: 15,
-  },
-  row: {
-    justifyContent: 'space-between',
-  },
-  productCard: {
-    width: CARD_WIDTH,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 15,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  imageContainer: {
-    position: 'relative',
-  },
-  productImage: {
-    width: '100%',
-    height: 120,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  wishlistButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  wishlistIcon: {
-    fontSize: 16,
-  },
-  productInfo: {
-    padding: 12,
-  },
-  productName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-    lineHeight: 18,
-  },
-  productBrand: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 8,
-  },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 6,
-  },
-  productPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#10B981',
-  },
-  productUnit: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginLeft: 4,
-  },
-  stockContainer: {
-    marginBottom: 10,
-  },
-  stockText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  addToCartButton: {
-    backgroundColor: '#6200EE',
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#9CA3AF',
-  },
-  addToCartButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  disabledButtonText: {
-    color: '#6B7280',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 50,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#9CA3AF',
+    color: '#8A7A60',
   },
 });
 

@@ -7,408 +7,352 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Alert,
-  ActivityIndicator,
-  Dimensions,
   TextInput,
-  StatusBar,
-  RefreshControl
+  Dimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { useCart } from '../context/CartContext';
 import { productAPI } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
-// Default offers fallback
-const defaultOffers = [
-  {
-    id: '1',
-    title: 'Daily Deals',
-    subtitle: 'Up to 70% OFF on selected items!',
-    timeText: 'Ends in: 12:34:56',
-    timeIcon: '⏰',
-    discount: '70%',
-    gradient: ['#FF6B6B', '#FF8E53'],
-    imageUrl: require('../assets/images/grocery_background.jpg')
-  },
-  {
-    id: '2',
-    title: 'Weekend Special',
-    subtitle: 'Buy 1 Get 1 Free on snacks!',
-    timeText: 'Valid till Sunday',
-    timeIcon: '📅',
-    discount: 'BOGO',
-    gradient: ['#4ECDC4', '#44A08D'],
-    imageUrl: require('../assets/images/cosmetic_background.jpg')
-  }
-];
-
 const HomeScreen = ({ navigation }) => {
-  const [user] = useState({ name: 'User', phone: '6202878516' });
-  const [headerImage, setHeaderImage] = useState(require('../assets/images/herosection.png'));
-  const [offers, setOffers] = useState([]);
-  const [trendingBanner, setTrendingBanner] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [countdownTimer, setCountdownTimer] = useState(Date.now()); // For countdown updates
-  const [currentOfferIndex, setCurrentOfferIndex] = useState(0); // For auto-sliding
-  const offerScrollRef = useRef(null); // Ref for controlling scroll
+  const { addToCart } = useCart();
+  const [location] = useState('Jayanagar, Bengaluru');
+  const [selectedCategory, setSelectedCategory] = useState('Vegetables');
+  const [flashSaleProducts] = useState([
+    {
+      id: 1,
+      name: 'Organic Coconut Oil',
+      price: 199,
+      originalPrice: 249,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASzo-Uv-8fd37j0b6zmKLWccqteTEgW9NhrWoUVU-S7HFAJnHhuhRm0_CKqAPRNIbeBmWeojHggP9SvKcrrm2frKHLtVJM-M0MrzQjzYIu8YKbf8pJ0Nw0ypKbZGA5Gk9MpGgGH1ckU6XQruC3V9Waw6fe9opl9qCew_Ykha6wr_90ibgl-XHlQ6fU0I6nC-B2YUbc245h1fno-sWDLzH7U0dgKcFpiQhRF3duSZkNTU351FbueXOqqF0q9-YzRoqf08_z_OkT1A',
+      countdown: { hours: 2, minutes: 15, seconds: 45 },
+    },
+    {
+      id: 2,
+      name: 'Fresh Strawberries',
+      price: 150,
+      originalPrice: 200,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD-18ZNel0vrmEyrmHyicSrA8anPGmoBD78iFhXaDBaWJ5HNKje6bVZLIWJvyIkbWI2WmLJ5su1EDifKBdFIyTLk-OouYCde3vVVW9VzSi_ftX-TEFjYvj9riE9MStvdedJ3qat5L5aPOQwqEoCM1hqO1LarfjcLXvaHSj3Lg78gLFYLFxf3eXzwDin0OgRkaI68eOvF6EHTrNaEiL9GbWk1cHM6I1VY1Fh8YzbXlxSFF4ER1M-ZRomm57EPfPwON-NIwtbHOtFRA',
+      countdown: { hours: 1, minutes: 30, seconds: 10 },
+    },
+    {
+      id: 3,
+      name: 'Hydrating Face Serum',
+      price: 499,
+      originalPrice: 699,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAnpa_7E741Q2uVLK5AZK2plr9FX1OeP7btYDTZ-O3GjFZc2wupRZoa6VwWpf8DBQzkEDjyWubvetF2Mau4xSEi8IxSMVpDlfmGWLYA5N32zKsEuWcxp5LGU4jqh6QFiRi25wXr2tz_cTJWVIm0fyw_TqcuxS2vXlkIHEL81PhtKcsR7C1tr4zAwCHO7GgWTI3TTrljtVrG2BdZgGzIuUHAP7vFlHDd5U11gSW5y2xe5KDD0SQ6rIUjx08cDRVYiQBY7KkUgHCT2A',
+      countdown: { hours: 5, minutes: 5, seconds: 22 },
+    },
+  ]);
+
+  const [trendingProducts] = useState([
+    {
+      id: 1,
+      name: 'Almond Milk (Unsweetened)',
+      price: 120,
+      rating: 4.8,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDkvm7QTpkfCnv3VE183ELaJqGi2o40lrMPYu04EnbDWmIHr__Lk1l-cvyD00w718XWWnYKn-HiD81jtaUgpZ-bQL2URu7jhYeXkAMj3itJy-kuGYLCErashQnLqhDCAvHGVnKru8_mbJXhbDStTzkkiA7kUhLvOWG8gkEqi0lUAfhe6Vz2HyCVj0I04LmK8izHpgJJ1ZKDdxHNRx0FaUq3hWmBqLbLsF7-b0vOIUoaN7daB6f1DeibjeCscluJHv2XdbJQ2LtdLw',
+    },
+    {
+      id: 2,
+      name: 'SPF 50+ Sunscreen',
+      price: 350,
+      rating: 4.9,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuACKLNkJO4ZA7PHZWzM-_IIDTIBYvcjsA5kLsbMAD6usFqaBaFaipSo7nTrF71FGHjFSbcEgY76GLW3XxUp9KT0Ka9lmIqUzCJsY9nCfbPez4HzWZkJPHf0gJrOHC8tslIg-bI2Yv97yyOrQaqMuc93fb60Is_0yVtdDK1o1Oamty3Jv6FiuPgJwps_EF-4iP0oMbT2PjeK6Ui_g0vGdws2qCB1WCpPhF6etYwUD2vKGb_zTXZJdIB8rMXuj2NAunfwgq_XWhaFDw',
+    },
+    {
+      id: 3,
+      name: 'Organic Quinoa',
+      price: 250,
+      rating: 4.7,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB7yoAC7TJBfHPxqCHiZlH5GwEBgjZaFfYQ4kgnkOXzloUswhXxKhSijztCOILDv4IgvfxbnFCCh2DDTt84ucPuCbJEbUM2uUqEQkC1G8pdtmIJU0DO-hVU3BDFcsr8SgEeyiUN1BM1T_yQa4R6DOIArlK2SC7kGS1KEvMrLKST_VtifvXOLXeaLfx5eAcDm9vhpjGmzpCIWNlMolsfIn_6SWyWChIzM29Pyo_agKB8yC07S2GoKxqUVPNzGQ9GprO71B73juH1Ng',
+    },
+  ]);
+
+  const [countdowns, setCountdowns] = useState({});
+  const countdownInterval = useRef(null);
 
   useEffect(() => {
-    loadHeaderImage();
-    loadOffers();
-    loadTrendingBanner();
-  }, []);
+    // Initialize countdowns
+    const initialCountdowns = {};
+    flashSaleProducts.forEach(product => {
+      const totalSeconds = product.countdown.hours * 3600 + 
+                          product.countdown.minutes * 60 + 
+                          product.countdown.seconds;
+      initialCountdowns[product.id] = totalSeconds;
+    });
+    setCountdowns(initialCountdowns);
 
-  // Countdown timer effect - updates every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdownTimer(Date.now());
+    // Update countdown every second
+    countdownInterval.current = setInterval(() => {
+      setCountdowns(prev => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach(id => {
+          if (updated[id] > 0) {
+            updated[id] -= 1;
+          }
+        });
+        return updated;
+      });
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => {
+      if (countdownInterval.current) {
+        clearInterval(countdownInterval.current);
+      }
+    };
   }, []);
 
-  // Auto-slide effect - changes offer every 4 seconds
-  useEffect(() => {
-    if (offers.length <= 1) return; // Don't auto-slide if only one offer
-
-    const slideTimer = setInterval(() => {
-      setCurrentOfferIndex(prevIndex => {
-        const nextIndex = prevIndex === offers.length - 1 ? 0 : prevIndex + 1;
-        
-        // Scroll to the next offer
-        if (offerScrollRef.current) {
-          offerScrollRef.current.scrollTo({
-            x: nextIndex * width * 0.9 + (nextIndex * 15), // Card width + margin
-            animated: true,
-          });
-        }
-        
-        return nextIndex;
-      });
-    }, 4000); // Change every 4 seconds
-
-    return () => clearInterval(slideTimer);
-  }, [offers.length]);
-
-  const loadHeaderImage = async () => {
-    try {
-      const response = await fetch('http://10.0.2.2:5001/api/media/current-header');
-      const result = await response.json();
-      if (result.success && result.data && !result.data.isDefault) {
-        // If there's a custom header image, use it
-        setHeaderImage({ uri: `http://10.0.2.2:5001${result.data.imageUrl}` });
-      }
-    } catch (error) {
-      console.error('Error loading header image:', error);
-      // Keep default image if API fails
-    }
+  const formatCountdown = (totalSeconds) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  const loadOffers = async () => {
-    try {
-      console.log('🔄 Loading offers from API...');
-      const response = await fetch('http://10.0.2.2:5001/api/offers/all');
-      const result = await response.json();
-      console.log('📱 Offers API response:', result);
-      if (result.success) {
-        setOffers(result.data);
-        console.log('✅ Loaded offers:', result.data.length);
-      } else {
-        // Fallback to default offers if API fails
-        setOffers(defaultOffers);
-        console.log('⚠️ Using fallback offers');
-      }
-    } catch (error) {
-      console.error('❌ Error loading offers:', error);
-      // Fallback to default offers
-      setOffers(defaultOffers);
-      console.log('⚠️ Using fallback offers due to error');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const loadTrendingBanner = async () => {
-    try {
-      console.log('🔥 Loading trending banner...');
-      const response = await fetch('http://10.0.2.2:5001/api/trending-banner/active');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      console.log('📱 Trending banner response:', result);
-      
-      if (result.success && result.data && result.data.length > 0) {
-        // Get the first active banner
-        setTrendingBanner(result.data[0]);
-        console.log('✅ Loaded trending banner:', result.data[0].title);
-      } else {
-        console.log('⚠️ No trending banner available');
-        setTrendingBanner(null);
-      }
-    } catch (error) {
-      console.error('❌ Error loading trending banner:', error);
-      setTrendingBanner(null);
-    }
-  };
-
-  const handleBannerPress = () => {
-    console.log('🔥 Banner pressed!', trendingBanner);
-    
-    if (!trendingBanner) {
-      console.log('❌ No trending banner available');
-      return;
-    }
-
-    const { linkType, linkId } = trendingBanner;
-    console.log('🔗 Link type:', linkType, 'Link ID:', linkId);
-    
-    switch (linkType) {
-      case 'product':
-        console.log('📱 Navigating to product:', linkId);
-        navigation.navigate('ProductDetail', { productId: linkId });
-        break;
-      case 'subcategory':
-        console.log('📱 Navigating to subcategory:', linkId);
-        navigation.navigate('Grocery', { subcategory: linkId });
-        break;
-      case 'category':
-        console.log('📱 Navigating to category:', linkId);
-        navigation.navigate('Grocery', { category: linkId });
-        break;
-      case 'offer':
-        console.log('📱 Navigating to offer:', linkId);
-        // Navigate to offer detail or show offer modal
-        // For now, you can navigate to a specific product or category linked to the offer
-        // Or create an OfferDetail screen
-        Alert.alert(
-          'Offer Available!',
-          'This offer is now active. Check the offers section for more details.',
-          [{ text: 'OK' }]
-        );
-        break;
-      default:
-        console.log('📱 No action for link type:', linkType);
-        // No action for 'none' or unknown types
-        break;
-    }
-  };
-
-  const onRefresh = () => {
-    console.log('🔄 Pull to refresh triggered');
-    setRefreshing(true);
-    loadOffers();
-    loadTrendingBanner();
-  };
-
-  // Handle manual scroll to update current index
-  const handleScroll = (event) => {
-    const scrollX = event.nativeEvent.contentOffset.x;
-    const newIndex = Math.round(scrollX / (width * 0.9 + 15));
-    if (newIndex !== currentOfferIndex && newIndex >= 0 && newIndex < offers.length) {
-      setCurrentOfferIndex(newIndex);
-    }
-  };
-
-  const handleCategoryPress = (category) => {
-    if (category === 'Grocery') {
-      navigation.navigate('Grocery');
-    } else if (category === 'Cosmetics') {
-      navigation.navigate('Categories');
-    } else {
-      Alert.alert('Coming Soon', `${category} section is under development!`);
-    }
-  };
-
+  const categories = ['Vegetables', 'Skincare', 'Snacks', 'Fruits', 'Makeup', 'Hair Care'];
+  const promotionalBanners = [
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuAUKlmMF0L8Z8bL_8ofrEZ3sBZViFUBW7-UdNZkunafp6mvmDlTblQleNpZfpJDKlYcIQJfLybZaJeXiRqZz6JBNRURbTeI-eixJZE859C7Qd_ln0BpSsaHXXcIwuN38IgMHhrqoEuDi1BRU1lkbJLKUooyK6zDIweQPISmrT7f3lIuMxeyuYuPB7BS-zVRxrA5znc8bFaRhCyHXuqUyEma3qPsqa-ks2OU2QRWwbIkCCaRaUjUR3mc_PgCvHcvVNxbo5X-_3XFeQ',
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuBT5HNBcvq8x0LnBsKjSGmacCblgahlofb8TiNWHUAnMXX-GuL0GoaPogRQNmWETxzIE7ZdfY1I-ob00gdkBIk0gkBERl9S67fPvdcsSng8QIrzp0u3IJK_3zPtSKnmNvNGbmh0ifVpPsKNCTqUB53WB3TjIrusV-JeeiapPPAz7KGi1To4_GeqYPX2zEqLjmKOKwDG5fD-VgxzfqPUUGBv6MkdfzGunnEQPq4bGOoCebW4wh7yczdvNzzvR9maBr-Y55QYKlmpGQ',
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuDpMvWK4cdV-elqo9rTpSPitx82EeBQlzB0yKpVvv-Gl6ji_IVvuqbyctS9wfW-hbiSKGRtkE1iOg1htCeCWaIFuuFJg5FHCAaljf2eP67-G02V4N0-1e0vX8k6U_00z5_OPxeAwf9RNEAQrLy3h7Gi4NbE_SUg9D-Rp8TL_QVQ8C7-BdL40OZQhLObhpDJPWxw6Dskqg3AMh-hPUAM1Owa0_Nz0j8z7u9wDBSMdtF-RnSBrVTrr22ctKfnBZ4WD4SCD9c0IKfQFw',
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#F59E0B" />
-      
-      {/* Header with Diwali Theme */}
+      {/* Header */}
       <View style={styles.header}>
-        {/* Dynamic Background Image */}
-        <Image 
-          source={headerImage}
-          style={styles.headerBackground}
-          resizeMode="cover"
-        />
-        
-        <View style={styles.headerOverlay}>
-          {/* Top Navigation */}
-          <View style={styles.headerTop}>
-            <View style={styles.locationContainer}>
-              <Text style={styles.homeIcon}>🏠</Text>
-              <Text style={styles.locationText}>Home</Text>
-              <Text style={styles.expandIcon}>▼</Text>
+        <View style={styles.headerTop}>
+          <View style={styles.logoContainer}>
+            <View style={styles.logoIcon}>
+              <Text style={styles.logoText}>🏠</Text>
             </View>
-            
-            <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.notificationButton}>
-                <Text style={styles.notificationIcon}>🔔</Text>
-                <View style={styles.notificationDot} />
-              </TouchableOpacity>
-              <View style={styles.profileContainer}>
-                <Image 
-                  source={require('../assets/images/cosmetic_background.jpg')}
-                  style={styles.profileImage}
-                />
-              </View>
-            </View>
+            <Text style={styles.logoTitle}>MAHARANI</Text>
           </View>
+          <TouchableOpacity 
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <Text style={styles.profileIcon}>👤</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for products..."
+            placeholderTextColor="#666666"
+          />
+          <View style={styles.searchActions}>
+            <TouchableOpacity style={styles.searchActionButton}>
+              <Text style={styles.searchActionIcon}>🎤</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.searchActionButton}>
+              <Text style={styles.searchActionIcon}>📷</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Location */}
+        <View style={styles.locationContainer}>
+          <Text style={styles.locationIcon}>📍</Text>
+          <Text style={styles.locationText}>
+            Delivering to: <Text style={styles.locationValue}>{location}</Text>
+          </Text>
+          <Text style={styles.expandIcon}>▼</Text>
         </View>
       </View>
 
       <ScrollView 
-        style={styles.content} 
+        style={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#EF4444']}
-            tintColor="#EF4444"
-          />
-        }
+        contentContainerStyle={styles.contentContainer}
       >
-        {/* Offers Carousel */}
-        <View style={styles.offersSection}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#EF4444" />
-            </View>
-          ) : (
-            <ScrollView
-              ref={offerScrollRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              snapToInterval={width * 0.9}
-              decelerationRate="fast"
-              style={styles.offerScroll}
-              contentContainerStyle={styles.offerScrollContent}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-            >
-              {offers.map((offer, index) => (
-                <View key={offer.id || index} style={styles.offerCard}>
-                  {/* Background Image */}
+        {/* Promotional Banners */}
+        <View style={styles.bannersSection}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.bannersScrollContent}
+          >
+            {promotionalBanners.map((banner, index) => (
+              <View key={index} style={styles.bannerCard}>
+                <Image 
+                  source={{ uri: banner }}
+                  style={styles.bannerImage}
+                  resizeMode="cover"
+                />
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Category Tiles */}
+        <View style={styles.categoryTilesSection}>
+          <TouchableOpacity 
+            style={[styles.categoryTile, styles.groceryTile]}
+            onPress={() => navigation.navigate('Grocery')}
+          >
+            <Image 
+              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBu1nT_GcBYalh551j70vimz-YflrsgkFMav_EBpYGmz6x-BCPGeGdfJDM3s1qBnYxFGAsAq-x7oxocUZ9xFiww-McSOQqKD_ak6SdfSDKs4M6TL7yppfy-FpgjckS3a1jvGY6ORTkOu1Cwv0KNNZ7GZaCGm4BL2vX4k33Oer25WOoVqVKYcPgpPFit7m82jjP7maufqbtzg6RY0HzdCT6B3KveCfKsvN_d3LxEe4n0RjYjmUx-lS0ngTYzunlNvAZPuH7-VHErpQ' }}
+              style={styles.categoryTileImage}
+              resizeMode="cover"
+            />
+            <LinearGradient
+              colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.5)']}
+              style={styles.categoryTileOverlay}
+            />
+            <Text style={styles.categoryTileTitle}>Grocery</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.categoryTile, styles.cosmeticsTile]}
+            onPress={() => navigation.navigate('Categories')}
+          >
+            <Image 
+              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAcdtE4b7HIFKADBUvxxay5rBq3HaEMxhzcVyxZj3dYAPLY5-bXbyFNq7Iq0GsUwECoeLaLFge7VVgpXhZeVieE8b9bw4dmG0azfy89-lkVwDepjEe0Mh-K6q-7ilDdD-ezGf9FpII0XEAGB_22spLY0OCqnjdvx3Y1bpvj-r-CgLqnnD08Lj58twz3NhYMZofT9oJ0alAYCJoH2vYdD_Q2OSgYTrDMxuFUow7tmKqKSAFwbmmFE5-wtyCGSdB0pJaakEj1kYAAbQ' }}
+              style={styles.categoryTileImage}
+              resizeMode="cover"
+            />
+            <LinearGradient
+              colors={['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.5)']}
+              style={styles.categoryTileOverlay}
+            />
+            <Text style={styles.categoryTileTitle}>Cosmetics</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Category Filter Chips */}
+        <View style={styles.categoryChipsSection}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryChipsScrollContent}
+          >
+            {categories.map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={[
+                  styles.categoryChip,
+                  selectedCategory === category && styles.categoryChipActive
+                ]}
+                onPress={() => setSelectedCategory(category)}
+              >
+                <Text style={[
+                  styles.categoryChipText,
+                  selectedCategory === category && styles.categoryChipTextActive
+                ]}>
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Flash Sale Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Flash Sale</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.productsScrollContent}
+          >
+            {flashSaleProducts.map((product) => (
+              <TouchableOpacity
+                key={product.id}
+                style={styles.productCard}
+                onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
+                activeOpacity={0.8}
+              >
+                <View style={styles.productImageContainer}>
                   <Image 
-                    source={
-                      typeof offer.imageUrl === 'string' 
-                        ? { uri: `http://10.0.2.2:5001${offer.imageUrl}` }
-                        : offer.imageUrl
-                    } 
-                    style={styles.offerBackgroundImage}
+                    source={{ uri: product.image }}
+                    style={styles.productImage}
                     resizeMode="cover"
                   />
-                  
-                  {/* Dark Overlay for better text readability */}
-                  <View style={styles.offerOverlay} />
-                  
-                  {/* Content */}
-                  <View style={styles.offerContent}>
-                    <View style={styles.offerLeft}>
-                      <Text style={styles.offerTitle}>{offer.title}</Text>
-                      <Text style={styles.offerSubtitle}>{offer.subtitle}</Text>
-                      <View style={styles.offerTimeContainer}>
-                        <Text style={styles.timerIcon}>{offer.timeIcon}</Text>
-                        <Text style={styles.offerTime}>{offer.timeText}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.discountBadge}>
-                      <Text style={styles.discountText}>{offer.discount}</Text>
+                  <View style={styles.countdownBadge}>
+                    <Text style={styles.countdownText}>
+                      Ends in {formatCountdown(countdowns[product.id] || 0)}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.productInfo}>
+                  <Text style={styles.productName} numberOfLines={1}>
+                    {product.name}
+                  </Text>
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.productPrice}>₹{product.price}</Text>
+                    <Text style={styles.originalPrice}>₹{product.originalPrice}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Trending Products Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Trending Products</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.productsScrollContent}
+          >
+            {trendingProducts.map((product) => (
+              <TouchableOpacity
+                key={product.id}
+                style={styles.productCard}
+                onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
+                activeOpacity={0.8}
+              >
+                <View style={styles.productImageContainer}>
+                  <Image 
+                    source={{ uri: product.image }}
+                    style={styles.productImage}
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      const productData = {
+                        _id: product.id,
+                        name: product.name,
+                        price: product.price,
+                        images: [product.image],
+                        stock: 10,
+                      };
+                      addToCart(productData);
+                      Alert.alert('Added to Cart', `${product.name} has been added to your cart!`);
+                    }}
+                  >
+                    <Text style={styles.addButtonIcon}>+</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.productInfo}>
+                  <Text style={styles.productName} numberOfLines={1}>
+                    {product.name}
+                  </Text>
+                  <View style={styles.productFooter}>
+                    <Text style={styles.trendingPrice}>₹{product.price}</Text>
+                    <View style={styles.ratingContainer}>
+                      <Text style={styles.starIcon}>⭐</Text>
+                      <Text style={styles.ratingText}>{product.rating}</Text>
                     </View>
                   </View>
                 </View>
-              ))}
-            </ScrollView>
-          )}
-          
-          {/* Page Indicators */}
-          {!loading && offers.length > 1 && (
-            <View style={styles.pageIndicators}>
-              {offers.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.pageDot,
-                    index === currentOfferIndex && styles.activePageDot
-                  ]}
-                />
-              ))}
-            </View>
-          )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
-        {/* Categories Grid */}
-        <View style={styles.categoriesSection}>
-          <View style={styles.categoryGrid}>
-            <View style={styles.categoryCardContainer}>
-              <TouchableOpacity 
-                style={styles.categoryCard}
-                onPress={() => handleCategoryPress('Grocery')}
-              >
-                <Image 
-                  source={require('../assets/images/grocery_background.jpg')}
-                  style={styles.categoryImage}
-                />
-              </TouchableOpacity>
-              <Text style={styles.categoryTitle}>GROCERY</Text>
-            </View>
-
-            <View style={styles.categoryCardContainer}>
-              <TouchableOpacity 
-                style={styles.categoryCard}
-                onPress={() => handleCategoryPress('Cosmetics')}
-              >
-                <Image 
-                  source={require('../assets/images/cosmetic_background.jpg')}
-                  style={styles.categoryImage}
-                />
-              </TouchableOpacity>
-              <Text style={styles.categoryTitle}>COSMETICS</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Trending Now Section */}
-        {trendingBanner && (
-          <View style={styles.trendingSection}>
-            <View style={styles.trendingHeader}>
-              <Text style={styles.trendingTitle}>🔥 Trending Now</Text>
-            </View>
-
-            <TouchableOpacity style={styles.trendingBanner} onPress={handleBannerPress}>
-              <Image 
-                source={
-                  trendingBanner.backgroundImage && trendingBanner.backgroundImage.trim() !== ''
-                    ? { uri: `http://10.0.2.2:5001/${trendingBanner.backgroundImage}` }
-                    : require('../assets/images/grocery_background.jpg')
-                }
-                style={styles.trendingBannerImage}
-                onError={() => console.log('Banner image load error')}
-              />
-              <View style={styles.trendingBannerOverlay}>
-                <Text style={styles.trendingBannerTitle}>{trendingBanner.title}</Text>
-                <Text style={styles.trendingBannerSubtitle}>{trendingBanner.subtitle}</Text>
-                <View style={styles.exploreButton}>
-                  <Text style={styles.exploreButtonText}>{trendingBanner.buttonText}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </View>
-        )}
-
-
-        {/* Bottom Spacing */}
         <View style={styles.bottomSpacing} />
       </ScrollView>
-
-
     </SafeAreaView>
   );
 };
@@ -416,329 +360,329 @@ const HomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
+    backgroundColor: '#FDFDFD',
+    maxWidth: 420,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
-    position: 'relative',
-    height: 280,
-    marginBottom: 20,
-  },
-  headerBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: '100%',
-  },
-  headerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
+    backgroundColor: '#FDFDFD',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 12,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoIcon: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoText: {
+    fontSize: 24,
+    color: '#FF9933',
+  },
+  logoTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333333',
+    letterSpacing: -0.5,
+  },
+  profileButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileIcon: {
+    fontSize: 20,
+    color: '#666666',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 24,
+    height: 48,
+    paddingLeft: 12,
+    paddingRight: 8,
+    gap: 8,
+  },
+  searchIcon: {
+    fontSize: 20,
+    color: '#666666',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333333',
+    padding: 0,
+  },
+  searchActions: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  searchActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchActionIcon: {
+    fontSize: 20,
+    color: '#666666',
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
-  homeIcon: {
-    fontSize: 20,
-    marginRight: 8,
+  locationIcon: {
+    fontSize: 16,
+    color: '#666666',
   },
   locationText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-    marginRight: 8,
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#666666',
+  },
+  locationValue: {
+    fontWeight: '600',
+    color: '#333333',
   },
   expandIcon: {
     fontSize: 16,
-    color: 'white',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 15,
-  },
-  notificationButton: {
-    position: 'relative',
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notificationIcon: {
-    fontSize: 24,
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    backgroundColor: '#FDE047',
-    borderRadius: 4,
-  },
-  profileContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: 'white',
-    overflow: 'hidden',
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
+    color: '#666666',
+    marginLeft: 4,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
   },
-  offersSection: {
-    marginBottom: 20,
+  contentContainer: {
+    paddingBottom: 100,
   },
-  loadingContainer: {
-    height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
+  bannersSection: {
+    paddingTop: 8,
   },
-  offerScroll: {
-    paddingLeft: 0,
+  bannersScrollContent: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    gap: 12,
   },
-  offerScrollContent: {
-    paddingHorizontal: 0,
-  },
-  offerCard: {
-    width: width * 0.9,
-    height: 160,
-    borderRadius: 20,
-    marginRight: 15,
+  bannerCard: {
+    width: width * 0.75,
+    minWidth: 300,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  bannerImage: {
+    width: '100%',
+    aspectRatio: 2 / 1,
+    borderRadius: 12,
+  },
+  categoryTilesSection: {
+    flexDirection: 'row',
+    gap: 16,
+    paddingHorizontal: 16,
+    marginTop: 24,
+  },
+  categoryTile: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  offerBackgroundImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
+  categoryTileImage: {
     width: '100%',
     height: '100%',
   },
-  offerOverlay: {
+  categoryTileOverlay: {
     position: 'absolute',
-    top: 0,
+    bottom: 0,
     left: 0,
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    right: 0,
+    height: '60%',
   },
-  offerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    position: 'relative',
-    zIndex: 1,
-    height: '100%',
+  categoryTileTitle: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  offerLeft: {
-    flex: 1,
+  categoryChipsSection: {
+    marginTop: 24,
   },
-  offerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 5,
+  categoryChipsScrollContent: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    gap: 12,
   },
-  offerSubtitle: {
-    fontSize: 14,
-    color: 'white',
-    opacity: 0.9,
-    marginBottom: 8,
-  },
-  offerTimeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timerIcon: {
-    fontSize: 14,
-    marginRight: 5,
-  },
-  offerTime: {
-    fontSize: 12,
-    color: 'white',
-    fontWeight: '600',
-  },
-  discountBadge: {
-    backgroundColor: '#FDE047',
-    borderRadius: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignSelf: 'flex-start',
-  },
-  discountText: {
-    color: '#EF4444',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  pageIndicators: {
-    flexDirection: 'row',
+  categoryChip: {
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 5,
+    marginRight: 12,
   },
-  pageDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    marginHorizontal: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
+  categoryChipActive: {
+    backgroundColor: '#FF9933',
   },
-  activePageDot: {
-    backgroundColor: '#FFD700',
-    width: 16,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: '#FF6B35',
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 3,
+  categoryChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333333',
   },
-  categoriesSection: {
-    marginBottom: 20,
+  categoryChipTextActive: {
+    color: '#FFFFFF',
   },
-  categoryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 15,
+  section: {
+    marginTop: 24,
   },
-  categoryCardContainer: {
-    flex: 1,
-    alignItems: 'center',
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333333',
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
-  categoryCard: {
-    width: '100%',
-    height: 120,
-    borderRadius: 15,
+  productsScrollContent: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    gap: 16,
+  },
+  productCard: {
+    width: 160,
+  },
+  productImageContainer: {
+    position: 'relative',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
     overflow: 'hidden',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  productImage: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 12,
+  },
+  countdownBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  countdownText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  addButton: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FF9933',
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 4,
   },
-  categoryImage: {
-    width: '100%',
-    height: '100%',
+  addButtonIcon: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  categoryOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 12,
+  productInfo: {
+    paddingTop: 8,
   },
-  categoryTitle: {
+  productName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 4,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  productPrice: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2D3748',
-    marginTop: 8,
-    textAlign: 'center',
+    fontWeight: '700',
+    color: '#FF9933',
   },
-  categorySubtitle: {
+  originalPrice: {
     fontSize: 12,
-    color: 'white',
-    opacity: 0.8,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    color: '#666666',
+    textDecorationLine: 'line-through',
   },
-  trendingSection: {
-    marginBottom: 20,
-  },
-  trendingHeader: {
+  productFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
   },
-  trendingTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2D3748',
-  },
-  seeAllText: {
-    fontSize: 14,
-    color: '#4CAF50',
-    fontWeight: '600',
-  },
-  trendingBanner: {
-    height: 160,
-    borderRadius: 15,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  trendingBannerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  trendingBannerOverlay: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    paddingLeft: 20,
-  },
-  trendingBannerTitle: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  trendingBannerSubtitle: {
-    color: 'white',
+  trendingPrice: {
     fontSize: 16,
-    opacity: 0.9,
-    marginBottom: 15,
+    fontWeight: '700',
+    color: '#333333',
   },
-  exploreButton: {
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
-  exploreButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
+  starIcon: {
+    fontSize: 12,
+  },
+  ratingText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#666666',
   },
   bottomSpacing: {
-    height: 20,
+    height: 24,
   },
 });
 

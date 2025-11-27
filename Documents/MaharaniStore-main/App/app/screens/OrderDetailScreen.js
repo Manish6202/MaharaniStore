@@ -28,14 +28,28 @@ const OrderDetailScreen = ({ route, navigation }) => {
   const fetchOrderDetails = async () => {
     try {
       setLoading(true);
+      setError(null);
+      console.log('📦 Fetching order details for ID:', orderId);
       const response = await orderAPI.getOrderById(orderId);
-      if (response.success) {
-        setOrder(response.data);
+      console.log('📦 Order API response:', response);
+      
+      if (response && response.success) {
+        // Normalize order data - handle both orderStatus and status fields
+        const orderData = {
+          ...response.data,
+          orderStatus: response.data.orderStatus || response.data.status || 'pending',
+          status: response.data.status || response.data.orderStatus || 'pending',
+        };
+        console.log('✅ Order loaded:', orderData.orderNumber);
+        setOrder(orderData);
       } else {
-        setError(response.message || 'Failed to load order details');
+        const errorMsg = response?.message || 'Failed to load order details';
+        console.error('❌ Order API error:', errorMsg);
+        setError(errorMsg);
       }
     } catch (err) {
-      setError(err.message || 'Failed to load order details');
+      console.error('❌ Order fetch error:', err);
+      setError(err.message || 'Failed to load order details. Please check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -111,37 +125,47 @@ const OrderDetailScreen = ({ route, navigation }) => {
     );
   };
 
-  const renderOrderItem = (item, index) => (
-    <View key={index} style={styles.orderItem}>
-      <View style={styles.itemImageContainer}>
-        {item.product.images && item.product.images.length > 0 ? (
-          <Image
-            source={{ uri: productAPI.getImageUrl(item.product.images[0]) }}
-            style={styles.itemImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={[styles.itemImage, styles.placeholderImage]}>
-            <Text style={styles.placeholderText}>📦</Text>
-          </View>
-        )}
+  const renderOrderItem = (item, index) => {
+    const product = item.product || {};
+    const productName = product.name || 'Product';
+    const productImages = product.images || [];
+    const mainCategory = product.mainCategory || '';
+    const subcategory = product.subcategory || '';
+    
+    return (
+      <View key={index} style={styles.orderItem}>
+        <View style={styles.itemImageContainer}>
+          {productImages.length > 0 ? (
+            <Image
+              source={{ uri: productAPI.getImageUrl(productImages[0]) }}
+              style={styles.itemImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.itemImage, styles.placeholderImage]}>
+              <Text style={styles.placeholderText}>📦</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.itemDetails}>
+          <Text style={styles.itemName} numberOfLines={2}>
+            {productName}
+          </Text>
+          {(mainCategory || subcategory) && (
+            <Text style={styles.itemCategory}>
+              {mainCategory}{subcategory ? ` • ${subcategory}` : ''}
+            </Text>
+          )}
+          <Text style={styles.itemQuantity}>
+            Quantity: {item.quantity || 1} • ₹{item.price || 0} each
+          </Text>
+          <Text style={styles.itemTotal}>
+            Total: ₹{item.total || item.price * (item.quantity || 1)}
+          </Text>
+        </View>
       </View>
-      <View style={styles.itemDetails}>
-        <Text style={styles.itemName} numberOfLines={2}>
-          {item.product.name}
-        </Text>
-        <Text style={styles.itemCategory}>
-          {item.product.mainCategory} • {item.product.subcategory}
-        </Text>
-        <Text style={styles.itemQuantity}>
-          Quantity: {item.quantity} • ₹{item.price} each
-        </Text>
-        <Text style={styles.itemTotal}>
-          Total: ₹{item.total}
-        </Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -206,18 +230,25 @@ const OrderDetailScreen = ({ route, navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Delivery Address</Text>
           <View style={styles.addressCard}>
-            <Text style={styles.addressName}>{order.deliveryAddress.name}</Text>
-            <Text style={styles.addressPhone}>{order.deliveryAddress.phone}</Text>
+            <Text style={styles.addressName}>{order.deliveryAddress?.name || 'N/A'}</Text>
+            <Text style={styles.addressPhone}>{order.deliveryAddress?.phone || 'N/A'}</Text>
             <Text style={styles.addressText}>
-              {order.deliveryAddress.address}
+              {order.deliveryAddress?.address || 'N/A'}
             </Text>
-            <Text style={styles.addressText}>
-              {order.deliveryAddress.area}, {order.deliveryAddress.city}
-            </Text>
-            <Text style={styles.addressText}>
-              {order.deliveryAddress.state} - {order.deliveryAddress.pincode}
-            </Text>
-            {order.deliveryAddress.landmark && (
+            {order.deliveryAddress?.area && (
+              <Text style={styles.addressText}>
+                {order.deliveryAddress.area}
+                {order.deliveryAddress?.city ? `, ${order.deliveryAddress.city}` : ''}
+              </Text>
+            )}
+            {(order.deliveryAddress?.city || order.deliveryAddress?.state || order.deliveryAddress?.pincode) && (
+              <Text style={styles.addressText}>
+                {order.deliveryAddress?.city || ''}
+                {order.deliveryAddress?.state ? `, ${order.deliveryAddress.state}` : ''}
+                {order.deliveryAddress?.pincode ? ` - ${order.deliveryAddress.pincode}` : ''}
+              </Text>
+            )}
+            {order.deliveryAddress?.landmark && (
               <Text style={styles.addressText}>
                 Landmark: {order.deliveryAddress.landmark}
               </Text>

@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   Image,
   ActivityIndicator,
@@ -12,24 +12,15 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useWishlist } from '../context/WishlistContext';
+import { useCart } from '../context/CartContext';
 import { productAPI } from '../services/api';
 
 const WishlistScreen = ({ navigation }) => {
-  const {
-    items,
-    totalItems,
-    loading,
-    error,
-    removeFromWishlist,
-    clearWishlist,
-    syncWithBackend,
-  } = useWishlist();
-
+  const { items, loading, syncWithBackend, removeFromWishlist } = useWishlist();
+  const { addToCart } = useCart();
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    // Only sync with backend if user is authenticated
-    // The syncWithBackend function will handle auth errors gracefully
     syncWithBackend();
   }, []);
 
@@ -39,32 +30,36 @@ const WishlistScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
+  const handleAddToCart = (product) => {
+    if (product.stock === 0) {
+      Alert.alert('Out of Stock', 'This product is currently out of stock.');
+      return;
+    }
+    addToCart(product);
+    Alert.alert('Added to Cart', `${product.name} has been added to your cart.`);
+  };
+
+  const handleAddAllToCart = () => {
+    const inStockItems = items.filter((item) => item.stock > 0);
+    if (inStockItems.length === 0) {
+      Alert.alert('No Items Available', 'All items in your wishlist are out of stock.');
+      return;
+    }
+    inStockItems.forEach((item) => addToCart(item));
+    Alert.alert('Added to Cart', `${inStockItems.length} item(s) added to your cart.`);
+  };
+
   const handleRemoveItem = (productId, productName) => {
     Alert.alert(
       'Remove from Wishlist',
-      `Are you sure you want to remove "${productName}" from your wishlist?`,
+      `Remove "${productName}" from your wishlist?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Remove', 
-          style: 'destructive', 
-          onPress: () => removeFromWishlist(productId) 
-        }
-      ]
-    );
-  };
-
-  const handleClearWishlist = () => {
-    Alert.alert(
-      'Clear Wishlist',
-      'Are you sure you want to remove all items from your wishlist?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Clear All', 
-          style: 'destructive', 
-          onPress: () => clearWishlist() 
-        }
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => removeFromWishlist(productId),
+        },
       ]
     );
   };
@@ -73,423 +68,450 @@ const WishlistScreen = ({ navigation }) => {
     navigation.navigate('ProductDetail', { productId: product._id });
   };
 
-  const handleAddToCart = (product) => {
-    // Navigate to product detail where user can add to cart
-    navigation.navigate('ProductDetail', { productId: product._id });
-  };
-
-  const renderEmptyWishlist = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>💝</Text>
-      <Text style={styles.emptyTitle}>Your wishlist is empty</Text>
-      <Text style={styles.emptySubtitle}>
-        Save your favorite products to see them here!
-      </Text>
-      <TouchableOpacity
-        style={styles.shopNowButton}
-        onPress={() => navigation.navigate('Home')}
-      >
-        <Text style={styles.shopNowButtonText}>Start Shopping</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderWishlistItem = ({ item }) => {
-    // Debug logging
-    console.log('🎨 Rendering wishlist item:', {
-      _id: item._id,
-      name: item.name,
-      price: item.price,
-      stock: item.stock,
-      unit: item.unit,
-      brand: item.brand,
-      mainCategory: item.mainCategory,
-      subcategory: item.subcategory,
-      images: item.images
-    });
+  const renderProductCard = (item, isFirst = false) => {
+    const imageUrl = item.images?.[0]
+      ? productAPI.getImageUrl(item.images[0])
+      : 'https://via.placeholder.com/96';
+    const isOutOfStock = item.stock === 0;
+    const hasDiscount = item.originalPrice && item.originalPrice > item.price;
 
     return (
-    <View style={styles.wishlistItem}>
-      {/* Product Image */}
-      <TouchableOpacity
-        style={styles.imageContainer}
-        onPress={() => handleProductPress(item)}
+      <View
+        key={item._id}
+        style={[
+          styles.productCard,
+          isOutOfStock && styles.productCardDisabled,
+          isFirst && styles.firstProductCard,
+        ]}
       >
-        {item.images && item.images.length > 0 ? (
+        <TouchableOpacity
+          style={styles.productImageContainer}
+          onPress={() => handleProductPress(item)}
+        >
           <Image
-            source={{ uri: productAPI.getImageUrl(item.images[0]) }}
+            source={{ uri: imageUrl }}
             style={styles.productImage}
             resizeMode="cover"
-            onError={() => {
-              console.log('❌ Image failed to load for:', item.name);
-              setImageError && setImageError(true);
-            }}
           />
-        ) : (
-          <View style={[styles.productImage, styles.placeholderImage]}>
-            <Text style={styles.placeholderText}>📦</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-
-      {/* Product Details */}
-      <View style={styles.detailsContainer}>
-        <TouchableOpacity onPress={() => handleProductPress(item)}>
-          <Text style={styles.productName} numberOfLines={2}>
-            {item.name || 'Product Name'}
-          </Text>
-          {item.brand && <Text style={styles.productBrand}>{item.brand}</Text>}
-          <Text style={styles.productCategory}>
-            {item.mainCategory || 'General'} • {item.subcategory || 'Category'}
-          </Text>
-          
-          <View style={styles.priceContainer}>
-            <Text style={styles.productPrice}>₹{item.price || '0'}</Text>
-            <Text style={styles.productUnit}>per {item.unit || 'piece'}</Text>
-          </View>
-
-          <View style={styles.stockContainer}>
-            <Text style={[
-              styles.stockText,
-              { color: (item.stock || 0) > 0 ? ((item.stock || 0) < 5 ? '#F59E0B' : '#10B981') : '#EF4444' }
-            ]}>
-              {(item.stock || 0) === 0 ? 'Out of stock' : 
-               (item.stock || 0) < 5 ? `Only ${item.stock} left` : 
-               `${item.stock} available`}
-            </Text>
-          </View>
         </TouchableOpacity>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.addToCartButton}
-            onPress={() => handleAddToCart(item)}
-            disabled={item.stock === 0}
-          >
-            <Text style={[
-              styles.addToCartButtonText,
-              item.stock === 0 && styles.disabledButtonText
-            ]}>
-              {item.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+        <View style={styles.productInfo}>
+          <TouchableOpacity onPress={() => handleProductPress(item)}>
+            <Text style={styles.productBrand}>{item.brand || 'Brand'}</Text>
+            <Text style={styles.productName} numberOfLines={2}>
+              {item.name || 'Product Name'}
             </Text>
+            <View style={styles.priceContainer}>
+              {hasDiscount ? (
+                <>
+                  <Text style={styles.productPrice}>₹{item.price}</Text>
+                  <Text style={styles.originalPrice}>₹{item.originalPrice}</Text>
+                </>
+              ) : (
+                <Text style={styles.productPrice}>₹{item.price || '0'}</Text>
+              )}
+            </View>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.removeButton}
-            onPress={() => handleRemoveItem(item._id, item.name)}
-          >
-            <Text style={styles.removeButtonText}>Remove</Text>
-          </TouchableOpacity>
+          {isOutOfStock ? (
+            <View style={styles.outOfStockButton}>
+              <Text style={styles.outOfStockText}>Out of Stock</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.addToCartButton}
+              onPress={() => handleAddToCart(item)}
+            >
+              <Text style={styles.addToCartIcon}>🛒</Text>
+              <Text style={styles.addToCartText}>Add to Cart</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={() => handleRemoveItem(item._id, item.name)}
+        >
+          <Text style={styles.favoriteIcon}>❤️</Text>
+        </TouchableOpacity>
       </View>
-    </View>
     );
   };
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.headerLeft}>
-        <Text style={styles.headerTitle}>My Wishlist</Text>
-        <Text style={styles.headerSubtitle}>
-          {totalItems} {totalItems === 1 ? 'item' : 'items'}
-        </Text>
-      </View>
-      {items.length > 0 && (
-        <TouchableOpacity
-          style={styles.clearButton}
-          onPress={handleClearWishlist}
-        >
-          <Text style={styles.clearButtonText}>Clear All</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+  const inStockCount = items.filter((item) => item.stock > 0).length;
 
-  if (loading && !refreshing) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6200EE" />
-          <Text style={styles.loadingText}>Loading your wishlist...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Only show error if it's not an authentication error
-  if (error && !error.includes('Access denied')) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorTitle}>Something went wrong</Text>
-          <Text style={styles.errorMessage}>{error}</Text>
+  return (
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
+        {/* Top App Bar */}
+        <View style={styles.topBar}>
           <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => syncWithBackend()}
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
           >
-            <Text style={styles.retryButtonText}>Try Again</Text>
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.topBarTitle}>My Wishlist</Text>
+          <TouchableOpacity style={styles.shareButton}>
+            <Text style={styles.shareIcon}>📤</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
-    );
-  }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {renderHeader()}
-      
-      {items.length === 0 ? (
-        renderEmptyWishlist()
-      ) : (
-        <FlatList
-          data={items}
-          renderItem={renderWishlistItem}
-          keyExtractor={(item) => item._id}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={['#6200EE']}
-              tintColor="#6200EE"
-            />
-          }
-        />
+      {/* Filters/Chips */}
+      <View style={styles.filtersContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersContent}
+        >
+          <TouchableOpacity style={styles.filterChip}>
+            <Text style={styles.filterChipText}>Sort by Price</Text>
+            <Text style={styles.filterChipArrow}>▼</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.filterChip}>
+            <Text style={styles.filterChipText}>In Stock</Text>
+            <Text style={styles.filterChipArrow}>▼</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.filterChip}>
+            <Text style={styles.filterChipText}>On Sale</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      {/* Product List */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          items.length === 0 && styles.scrollContentEmpty,
+        ]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#FF9933']}
+            tintColor="#FF9933"
+          />
+        }
+      >
+        {loading && items.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FF9933" />
+            <Text style={styles.loadingText}>Loading wishlist...</Text>
+          </View>
+        ) : items.length > 0 ? (
+          items.map((item, index) => renderProductCard(item, index === 0))
+        ) : (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconContainer}>
+              <Text style={styles.emptyIcon}>❤️</Text>
+            </View>
+            <Text style={styles.emptyTitle}>Your wishlist is empty</Text>
+            <Text style={styles.emptySubtext}>Let's find something you'll love!</Text>
+            <TouchableOpacity
+              style={styles.startShoppingButton}
+              onPress={() => navigation.navigate('Home')}
+            >
+              <Text style={styles.startShoppingButtonText}>Start Shopping</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Sticky Footer CTA */}
+      {items.length > 0 && inStockCount > 0 && (
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.addAllButton}
+            onPress={handleAddAllToCart}
+          >
+            <Text style={styles.addAllButtonText}>
+              Add All to Cart ({inStockCount})
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F6F7F8',
   },
-  header: {
+  safeAreaTop: {
+    backgroundColor: '#F6F7F8',
+  },
+  topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#F6F7F8',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  headerLeft: {
-    flex: 1,
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  headerTitle: {
+  backIcon: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 2,
+    color: '#111827',
   },
-  headerSubtitle: {
+  topBarTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  shareButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shareIcon: {
+    fontSize: 24,
+    color: '#111827',
+  },
+  filtersContainer: {
+    backgroundColor: '#F6F7F8',
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  filtersContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 9999,
+    backgroundColor: '#E5E7EB',
+  },
+  filterChipText: {
     fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  filterChipArrow: {
+    fontSize: 12,
     color: '#6B7280',
   },
-  clearButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#FEE2E2',
+  scrollView: {
+    flex: 1,
+    backgroundColor: '#F6F7F8',
   },
-  clearButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#EF4444',
+  scrollContent: {
+    paddingTop: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 100,
   },
-  listContainer: {
-    padding: 16,
+  scrollContentEmpty: {
+    flexGrow: 1,
   },
-  wishlistItem: {
+  productCard: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    marginBottom: 12,
     padding: 12,
-    elevation: 2,
+    marginTop: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  imageContainer: {
-    width: 100,
-    height: 100,
+  firstProductCard: {
+    marginTop: 16,
+  },
+  productCardDisabled: {
+    opacity: 0.6,
+  },
+  productImageContainer: {
+    width: 96,
+    height: 96,
     borderRadius: 8,
     overflow: 'hidden',
-    marginRight: 12,
   },
   productImage: {
     width: '100%',
     height: '100%',
   },
-  placeholderImage: {
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: 24,
-    color: '#9CA3AF',
-  },
-  detailsContainer: {
+  productInfo: {
     flex: 1,
-    justifyContent: 'space-between',
+    gap: 8,
+  },
+  productBrand: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginBottom: 4,
   },
   productName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: '#111827',
     marginBottom: 4,
-    lineHeight: 20,
-  },
-  productBrand: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  productCategory: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 8,
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 6,
+    gap: 8,
+    marginBottom: 8,
   },
   productPrice: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#10B981',
-  },
-  productUnit: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginLeft: 4,
-  },
-  stockContainer: {
-    marginBottom: 12,
-  },
-  stockText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500',
+    color: '#111827',
   },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 8,
+  originalPrice: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#6B7280',
+    textDecorationLine: 'line-through',
   },
   addToCartButton: {
-    flex: 1,
-    backgroundColor: '#6200EE',
-    paddingVertical: 8,
-    borderRadius: 6,
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  addToCartButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  disabledButtonText: {
-    color: '#9CA3AF',
-  },
-  removeButton: {
+    gap: 8,
+    height: 36,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
+    maxWidth: 480,
+    backgroundColor: '#FF993310',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
   },
-  removeButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
+  addToCartIcon: {
+    fontSize: 16,
+  },
+  addToCartText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FF9933',
+  },
+  outOfStockButton: {
+    height: 36,
+    paddingHorizontal: 12,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
+  outOfStockText: {
+    fontSize: 14,
+    fontWeight: '500',
     color: '#6B7280',
   },
-  emptyContainer: {
-    flex: 1,
+  favoriteButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
   },
-  emptyIcon: {
-    fontSize: 80,
-    marginBottom: 20,
-  },
-  emptyTitle: {
+  favoriteIcon: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  shopNowButton: {
-    backgroundColor: '#6200EE',
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 8,
-  },
-  shopNowButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    paddingVertical: 48,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
     color: '#6B7280',
   },
-  errorContainer: {
-    flex: 1,
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 64,
+    paddingHorizontal: 32,
+  },
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#FF993310',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    marginBottom: 24,
   },
-  errorIcon: {
-    fontSize: 60,
-    marginBottom: 16,
+  emptyIcon: {
+    fontSize: 48,
   },
-  errorTitle: {
+  emptyTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: '#111827',
     marginBottom: 8,
-    textAlign: 'center',
   },
-  errorMessage: {
+  emptySubtext: {
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
-    lineHeight: 20,
     marginBottom: 24,
   },
-  retryButton: {
-    backgroundColor: '#6200EE',
+  startShoppingButton: {
+    height: 48,
     paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: '#FF9933',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FF9933',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  retryButtonText: {
+  startShoppingButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#F6F7F880',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  addAllButton: {
+    height: 56,
+    width: '100%',
+    backgroundColor: '#FF9933',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FF9933',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  addAllButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
 });

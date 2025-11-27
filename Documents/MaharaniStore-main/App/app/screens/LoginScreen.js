@@ -29,6 +29,8 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successUserName, setSuccessUserName] = useState('');
+  const [resendTimer, setResendTimer] = useState(30);
+  const [canResend, setCanResend] = useState(false);
   const { login } = useAuth();
   const otpInputRefs = useRef([]);
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -48,6 +50,8 @@ const LoginScreen = ({ navigation }) => {
       if (result.success && result.data) {
         console.log('🔢 OTP for testing:', result.data.otp);
         setOtpSent(true);
+        setResendTimer(30);
+        setCanResend(false);
         Alert.alert('Success', `OTP sent to +91 ${phone}\n\nOTP: ${result.data.otp}`, [
           { text: 'OK', onPress: () => console.log('✅ User acknowledged OTP:', result.data.otp) }
         ]);
@@ -183,9 +187,55 @@ const LoginScreen = ({ navigation }) => {
   };
 
   const handleResendOTP = () => {
-    setOtpSent(false);
+    if (!canResend) return;
     setOtpDigits(['', '', '', '', '', '']);
+    setResendTimer(30);
+    setCanResend(false);
     handleSendOTP();
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    try {
+      // For now, show alert - you can integrate Google Sign-In SDK here
+      Alert.alert(
+        'Google Login',
+        'Google Sign-In will be available soon. Please use phone number login for now.',
+        [{ text: 'OK' }]
+      );
+      // TODO: Integrate @react-native-google-signin/google-signin
+      // const { idToken } = await GoogleSignin.signIn();
+      // const result = await authAPI.googleLogin(idToken);
+      // if (result.success) {
+      //   await login(result.data.user, result.data.token);
+      //   navigation.replace('Home');
+      // }
+    } catch (error) {
+      console.error('❌ Google Login Error:', error);
+      Alert.alert('Error', 'Google login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Resend timer effect
+  useEffect(() => {
+    if (otpSent && resendTimer > 0) {
+      const timer = setTimeout(() => {
+        setResendTimer(resendTimer - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (otpSent && resendTimer === 0) {
+      setCanResend(true);
+    }
+  }, [otpSent, resendTimer]);
+
+  // Format phone number for display (mask middle digits)
+  const formatPhoneForDisplay = (phoneNumber) => {
+    if (phoneNumber.length === 10) {
+      return `+91 ••••••${phoneNumber.slice(6)}`;
+    }
+    return `+91 ${phoneNumber}`;
   };
 
   const handleCloseSuccessModal = () => {
@@ -213,75 +263,119 @@ const LoginScreen = ({ navigation }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Full Background Image */}
-          <View style={styles.backgroundSection}>
-            {/* Replace with your welcome.png image */}
-            <Image 
-              source={require('../assets/images/welcome.png')}
-              style={styles.backgroundImage}
-              resizeMode="cover"
-            />
-            {/* Semi-transparent overlay */}
-            <View style={styles.overlay} />
-            
-            {/* App Title */}
-            <View style={styles.titleSection}>
-              <Text style={styles.appTitle}>Maharani Store</Text>
-              <Text style={styles.subtitle}>Your Local Grocery & Cosmetics Store</Text>
+        <ScrollView 
+          contentContainerStyle={[
+            styles.scrollContent,
+            otpSent && styles.scrollContentOTP
+          ]} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={[styles.contentWrapper, otpSent && styles.contentWrapperOTP]}>
+            {/* Logo */}
+            <View style={styles.logoContainer}>
+              <Image 
+                source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAIKpTc4ajLPXGQXLRrG4T85nfrZOs0_NQ9YZ5VeVx35PwJyNTKzeL6qlqio5nK9kJnJPnaAPS-DudfIOOKnyIa81qMVbNw4ILKo_-NrwgE0O3PTiylqJHH8TpEQeHQkLin7Qiqq3a2OBd0nY1GjS35nmzVrnPVzoW6iP5dvyjgi5O0NFdvjFMBJwL14pJrc8Zu15W0aSvll8cFdi21Ll9k095UXlhor7eJTyYK86fxb-hm_3JqxYTJZpr3vN5fmtpdQzRJu-juVw' }}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
 
-            {/* OTP Login Form */}
-            <View style={styles.formSection}>
-              {!otpSent ? (
-                <>
-                  {/* Phone Input */}
-                  <View style={styles.inputContainer}>
-                    <View style={styles.inputField}>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Enter 10-digit phone number"
-                        placeholderTextColor="#9CA3AF"
-                        value={phone}
-                        onChangeText={setPhone}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        keyboardType="phone-pad"
-                        maxLength={10}
-                      />
-                    </View>
-                  </View>
+            {/* Headline & Body Text */}
+            <Text style={styles.headline}>Welcome to Maharani</Text>
+            <Text style={styles.subtitle}>Sign in to continue your shopping</Text>
 
-                  {/* Send OTP Button */}
-                  <TouchableOpacity 
-                    style={[styles.ctaButton, loading && styles.ctaButtonDisabled]} 
-                    onPress={handleSendOTP}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <Text style={styles.ctaButtonText}>Send OTP</Text>
-                    )}
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  {/* OTP Input */}
-                  <View style={styles.otpHeader}>
-                    <Text style={styles.otpTitle}>Enter OTP</Text>
-                    <Text style={styles.otpSubtitle}>Sent to +91 {phone}</Text>
+            {!otpSent ? (
+              <>
+                {/* Phone Input */}
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.label}>Enter your mobile number</Text>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.countryCode}>+91</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="12345 67890"
+                      placeholderTextColor="#888888"
+                      value={phone}
+                      onChangeText={setPhone}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                    />
                   </View>
+                </View>
+
+                {/* Continue Button */}
+                <TouchableOpacity 
+                  style={[styles.continueButton, loading && styles.continueButtonDisabled]} 
+                  onPress={handleSendOTP}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.continueButtonText}>Continue</Text>
+                  )}
+                </TouchableOpacity>
+
+                {/* Separator */}
+                <View style={styles.separator}>
+                  <View style={styles.separatorLine} />
+                  <Text style={styles.separatorText}>or</Text>
+                  <View style={styles.separatorLine} />
+                </View>
+
+                {/* Google Login Button */}
+                <TouchableOpacity 
+                  style={styles.googleButton}
+                  onPress={handleGoogleLogin}
+                  activeOpacity={0.8}
+                >
+                  <Image 
+                    source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDZ94dsV873GpE2rh1_8nTEe7sLuzr9BCCs5l9k29xj-FjJmceLRNLw_vfKlsSV6hmH17nAX166Dyg5AeBSDlTGPGqMKlAdPw5PIxO6MWqLBrtArgjYbJXpahR1Pba3TohuSana8xS59nfbl023XFR-gsZNgdpHLZJ86Q6KcqiGnPShMEEpzu60qdTwR-pZpTwt7j9G8gNstsDipvWJiynJ64QvfBWJ2Ky9qNrnfjA0Fc0u4MBEH7OKSystMABH5bsdljjqHZJBUA' }}
+                    style={styles.googleIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                {/* Top App Bar */}
+                <View style={styles.topBar}>
+                  <TouchableOpacity 
+                    style={styles.backButton}
+                    onPress={() => {
+                      setOtpSent(false);
+                      setOtpDigits(['', '', '', '', '', '']);
+                      setResendTimer(30);
+                      setCanResend(false);
+                    }}
+                  >
+                    <Text style={styles.backIcon}>←</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.appBarTitle}>MAHARANI</Text>
+                  <View style={styles.backButtonPlaceholder} />
+                </View>
+
+                {/* OTP Content */}
+                <View style={styles.otpContentWrapper}>
+                  {/* Headline */}
+                  <Text style={styles.otpHeadline}>Verify Your Number</Text>
+                  <Text style={styles.otpSubtitleText}>
+                    Enter the 6-digit code we sent to {formatPhoneForDisplay(phone)}
+                  </Text>
 
                   {/* OTP Input Boxes */}
-                  <View style={styles.otpContainer}>
+                  <View style={styles.otpInputContainer}>
                     {otpDigits.map((digit, index) => (
                       <TextInput
                         key={index}
                         ref={(ref) => (otpInputRefs.current[index] = ref)}
                         style={[
-                          styles.otpBox,
-                          digit && styles.otpBoxFilled,
+                          styles.otpInputBox,
+                          digit && styles.otpInputBoxFilled,
                         ]}
                         value={digit}
                         onChangeText={(value) => handleOtpChange(index, value)}
@@ -292,7 +386,6 @@ const LoginScreen = ({ navigation }) => {
                         selectTextOnFocus
                         autoFocus={index === 0 && otpSent}
                         onFocus={() => {
-                          // Select text when focused
                           otpInputRefs.current[index]?.setNativeProps({
                             selection: { start: 0, end: 1 }
                           });
@@ -305,31 +398,46 @@ const LoginScreen = ({ navigation }) => {
                     ))}
                   </View>
 
-                  {/* Verify OTP Button */}
+                  {/* Resend Timer */}
+                  <Text style={styles.resendTimerText}>
+                    Didn't receive the code?{' '}
+                    {canResend ? (
+                      <Text style={styles.resendLinkText} onPress={handleResendOTP}>
+                        Resend
+                      </Text>
+                    ) : (
+                      <Text style={styles.resendTimerCount}>
+                        Resend in {String(Math.floor(resendTimer / 60)).padStart(2, '0')}:{String(resendTimer % 60).padStart(2, '0')}
+                      </Text>
+                    )}
+                  </Text>
+                </View>
+
+                {/* Verify Button */}
+                <View style={styles.verifyButtonContainer}>
                   <TouchableOpacity 
-                    style={[styles.ctaButton, loading && styles.ctaButtonDisabled]} 
+                    style={[
+                      styles.verifyButton, 
+                      (loading || otpDigits.some(d => !d)) && styles.verifyButtonDisabled
+                    ]} 
                     onPress={handleVerifyOTP}
-                    disabled={loading}
+                    disabled={loading || otpDigits.some(d => !d)}
                   >
                     {loading ? (
                       <ActivityIndicator color="#FFFFFF" />
                     ) : (
-                      <Text style={styles.ctaButtonText}>Verify OTP</Text>
+                      <Text style={styles.verifyButtonText}>Verify</Text>
                     )}
                   </TouchableOpacity>
-
-                  {/* Resend OTP Link */}
-                  <TouchableOpacity style={styles.resendLink} onPress={handleResendOTP}>
-                    <Text style={styles.resendText}>Resend OTP</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
+                </View>
+              </>
+            )}
 
             {/* Footer */}
-            <View style={styles.footerSection}>
+            <View style={styles.footer}>
               <Text style={styles.footerText}>
-                By continuing, you agree to our Terms of Service and Privacy Policy
+                By continuing, you agree to Maharani's{' '}
+                <Text style={styles.footerLink}>Terms of Service</Text> & <Text style={styles.footerLink}>Privacy Policy</Text>.
               </Text>
             </View>
           </View>
@@ -390,158 +498,319 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8F7F5',
   },
   keyboardView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
+    justifyContent: 'center',
   },
-  backgroundSection: {
-    flex: 1,
-    position: 'relative',
+  scrollContentOTP: {
+    flexGrow: 1,
   },
-  backgroundImage: {
+  contentWrapper: {
     width: '100%',
-    height: '100%',
-    position: 'absolute',
+    maxWidth: 400,
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 64,
+    paddingBottom: 24,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  contentWrapperOTP: {
+    maxWidth: '100%',
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    flex: 1,
   },
-  titleSection: {
+  logoContainer: {
     alignItems: 'center',
-    paddingTop: 80,
-    paddingBottom: 40,
+    justifyContent: 'center',
+    paddingBottom: 32,
   },
-  appTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  logo: {
+    height: 48,
+    width: 'auto',
+    aspectRatio: 1,
+  },
+  headline: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#333333',
     textAlign: 'center',
+    paddingHorizontal: 16,
     marginBottom: 8,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#FFFFFF',
+    fontWeight: '400',
+    color: '#888888',
     textAlign: 'center',
-    opacity: 0.9,
+    paddingHorizontal: 16,
+    marginBottom: 32,
+    lineHeight: 24,
   },
-  formSection: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 30,
-    paddingVertical: 20,
+  inputWrapper: {
+    width: '100%',
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333333',
+    marginBottom: 8,
   },
   inputContainer: {
-    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    height: 56,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  inputField: {
-    position: 'relative',
+  countryCode: {
+    position: 'absolute',
+    left: 16,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333333',
+    zIndex: 1,
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    flex: 1,
+    paddingLeft: 56,
+    paddingRight: 16,
     fontSize: 16,
-    color: '#1F2937',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    fontWeight: '400',
+    color: '#333333',
+    height: 56,
   },
-  ctaButton: {
-    backgroundColor: '#FF6B35',
-    borderRadius: 12,
-    paddingVertical: 16,
+  continueButton: {
+    width: '100%',
+    maxWidth: 480,
+    height: 56,
+    backgroundColor: '#FF9933',
+    borderRadius: 28,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#FF6B35',
+    marginHorizontal: 16,
+    marginTop: 16,
+    shadowColor: '#FF9933',
     shadowOffset: {
       width: 0,
       height: 4,
     },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  ctaButtonDisabled: {
+  continueButtonDisabled: {
     opacity: 0.7,
   },
-  ctaButtonText: {
+  continueButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
+    letterSpacing: 0.015,
   },
-  otpHeader: {
+  separator: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
+    width: '100%',
+    paddingHorizontal: 16,
+    marginVertical: 24,
   },
-  otpTitle: {
+  separatorLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5E5',
+  },
+  separatorText: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#888888',
+    paddingHorizontal: 16,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 480,
+    height: 56,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    marginHorizontal: 16,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  googleIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
+  },
+  googleButtonText: {
+    color: '#333333',
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: 0.015,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 8,
+    backgroundColor: '#F8F7F5',
+  },
+  backButton: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backButtonPlaceholder: {
+    width: 48,
+  },
+  backIcon: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
+    color: '#181511',
+    fontWeight: '400',
   },
-  otpSubtitle: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    opacity: 0.9,
+  appBarTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#181511',
+    textAlign: 'center',
+    letterSpacing: -0.015,
   },
-  resendLink: {
+  otpContentWrapper: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
     alignItems: 'center',
-    marginTop: 20,
   },
-  resendText: {
-    color: '#FFFFFF',
+  otpHeadline: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#181511',
+    textAlign: 'center',
+    marginBottom: 12,
+    letterSpacing: -0.5,
+  },
+  otpSubtitleText: {
     fontSize: 16,
-    textDecorationLine: 'underline',
+    fontWeight: '400',
+    color: '#181511',
+    textAlign: 'center',
+    marginBottom: 32,
+    maxWidth: 300,
+    lineHeight: 24,
   },
-  otpContainer: {
+  otpInputContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 30,
-    paddingHorizontal: 20,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 32,
     width: '100%',
   },
-  otpBox: {
-    width: 50,
-    height: 60,
-    marginHorizontal: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+  otpInputBox: {
+    width: (width - 32 - 40) / 6, // Screen width minus padding minus gaps, divided by 6
+    maxWidth: 56,
+    minWidth: 45,
+    height: 64,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: '#181511',
     textAlign: 'center',
   },
-  otpBoxFilled: {
-    borderColor: '#FF6B35',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#FF6B35',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+  otpInputBoxFilled: {
+    borderColor: '#FF9933',
+    borderWidth: 2,
   },
-  footerSection: {
+  resendTimerText: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#8A7A60',
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  resendTimerCount: {
+    color: '#FF9933',
+    fontWeight: '600',
+  },
+  resendLinkText: {
+    color: '#FF9933',
+    fontWeight: '600',
+  },
+  verifyButtonContainer: {
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingTop: 32,
+    paddingBottom: 16,
+  },
+  verifyButton: {
+    width: '100%',
+    height: 56,
+    backgroundColor: '#FF9933',
+    borderRadius: 28,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 30,
-    paddingBottom: 30,
+  },
+  verifyButtonDisabled: {
+    backgroundColor: 'rgba(255, 153, 51, 0.3)',
+  },
+  verifyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  footer: {
+    marginTop: 64,
+    paddingHorizontal: 32,
+    paddingBottom: 24,
   },
   footerText: {
     fontSize: 12,
-    color: '#FFFFFF',
+    fontWeight: '400',
+    color: '#888888',
     textAlign: 'center',
-    opacity: 0.8,
     lineHeight: 18,
+  },
+  footerLink: {
+    fontWeight: '500',
+    color: '#333333',
+    textDecorationLine: 'underline',
   },
   // Success Modal Styles
   modalOverlay: {

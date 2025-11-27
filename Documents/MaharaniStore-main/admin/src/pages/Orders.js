@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
+import websocketService from '../services/websocket';
 import {
   Box,
   Card,
@@ -44,32 +45,70 @@ const Orders = () => {
 
   const adminToken = localStorage.getItem('adminToken');
 
-  const fetchOrders = async (newPage = 1, status = '') => {
+  const fetchOrders = useCallback(async (newPage = 1, status = '') => {
     try {
       setLoading(true);
       setError(null);
       const params = new URLSearchParams({ page: newPage, limit: 20 });
-      if (status) params.append('status', status);
+      if (status && status !== '') {
+        params.append('status', status);
+      }
+      
+      console.log('📦 Fetching orders:', params.toString());
+      
       const res = await axios.get(`/api/orders?${params.toString()}`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
+      
+      console.log('📦 Orders response:', res.data);
+      
       if (res.data.success) {
-        setOrders(res.data.data.orders);
-        setPages(res.data.data.pagination.pages);
-        setPage(res.data.data.pagination.current);
+        setOrders(res.data.data.orders || []);
+        setPages(res.data.data.pagination?.pages || 1);
+        setPage(res.data.data.pagination?.current || newPage);
       } else {
         setError(res.data.message || 'Failed to load orders');
       }
     } catch (e) {
-      setError(e.response?.data?.message || e.message || 'Failed to load orders');
+      console.error('❌ Error fetching orders:', e);
+      console.error('❌ Error response:', e.response?.data);
+      setError(
+        e.response?.data?.message || 
+        e.response?.data?.error || 
+        e.message || 
+        'Failed to load orders. Please check backend server.'
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [adminToken]);
 
   useEffect(() => {
     fetchOrders(1, '');
-  }, []);
+    
+    // Connect WebSocket
+    websocketService.connect();
+    
+    // Listen for new orders
+    const unsubscribeNewOrder = websocketService.on('new-order', (data) => {
+      console.log('📦 New order received via WebSocket:', data);
+      // Refresh orders to show new order
+      fetchOrders(page, statusFilter);
+    });
+    
+    // Listen for order status changes
+    const unsubscribeStatusChange = websocketService.on('order-status-changed', (data) => {
+      console.log('📦 Order status changed via WebSocket:', data);
+      // Refresh orders to show updated status
+      fetchOrders(page, statusFilter);
+    });
+    
+    return () => {
+      unsubscribeNewOrder();
+      unsubscribeStatusChange();
+      websocketService.disconnect();
+    };
+  }, [fetchOrders, page, statusFilter]);
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
