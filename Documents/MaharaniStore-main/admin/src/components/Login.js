@@ -16,6 +16,7 @@ import {
 import { Store, Login as LoginIcon } from '@mui/icons-material';
 import { loginStart, loginSuccess, loginFailure, clearError } from '../store/slices/authSlice';
 import { addNotification } from '../store/slices/uiSlice';
+import { getApiUrl } from '../config/api';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -53,7 +54,7 @@ const Login = () => {
     dispatch(loginStart());
 
     try {
-      const response = await axios.post('/api/admin/login', {
+      const response = await axios.post(getApiUrl('/api/admin/login'), {
         username: formData.username,
         password: formData.password
       });

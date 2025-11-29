@@ -26,6 +26,7 @@ import {
 } from 'recharts';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { getApiUrl } from '../config/api';
 
 const Dashboard = () => {
   const { token } = useAuth();
@@ -48,7 +49,7 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       // Fetch products from backend
-      const productsResponse = await axios.get('/api/products');
+      const productsResponse = await axios.get(getApiUrl('/api/products'));
       if (productsResponse.data.success) {
         const productsData = productsResponse.data.data;
         
@@ -75,7 +76,7 @@ const Dashboard = () => {
   const fetchOrderData = async () => {
     try {
       // Fetch order statistics
-      const statsResponse = await axios.get('/api/orders/stats?period=today', {
+      const statsResponse = await axios.get(getApiUrl('/api/orders/stats?period=today'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -91,7 +92,7 @@ const Dashboard = () => {
       }
 
       // Fetch order analytics
-      const analyticsResponse = await axios.get('/api/orders/analytics?period=month', {
+      const analyticsResponse = await axios.get(getApiUrl('/api/orders/analytics?period=month'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

@@ -12,6 +12,7 @@ import {
   GridView, TableView
 } from '@mui/icons-material';
 import axios from 'axios';
+import { getApiUrl, getImageUrl } from '../config/api';
 
 const OffersManagement = () => {
   const [offers, setOffers] = useState([]);
@@ -61,7 +62,7 @@ const OffersManagement = () => {
     setError(null);
     try {
       console.log('🔄 Fetching offers with token:', adminToken ? 'Present' : 'Missing');
-      const res = await axios.get('/api/offers/admin/all', {
+      const res = await axios.get(getApiUrl('/api/offers/admin/all'), {
         headers: { Authorization: `Bearer ${adminToken}` }
       });
       console.log('✅ Offers fetched successfully:', res.data.data.length, 'offers');
@@ -77,7 +78,7 @@ const OffersManagement = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('/api/products');
+      const response = await axios.get(getApiUrl('/api/products'));
       console.log('📦 Products response:', response.data);
       const productsData = response.data.data || response.data.products || [];
       console.log('📦 Total products fetched:', productsData.length);
@@ -199,8 +200,8 @@ const OffersManagement = () => {
 
     try {
       const url = editingOffer 
-        ? `/api/offers/update/${editingOffer._id}`
-        : '/api/offers/create';
+        ? getApiUrl(`/api/offers/update/${editingOffer._id}`)
+        : getApiUrl('/api/offers/create');
 
       console.log(`🔄 ${editingOffer ? 'Updating' : 'Creating'} offer...`);
       const res = await axios[editingOffer ? 'put' : 'post'](url, submitData, {
@@ -230,7 +231,7 @@ const OffersManagement = () => {
     setError(null);
     try {
       console.log('🗑️ Deleting offer:', id);
-      await axios.delete(`/api/offers/delete/${id}`, {
+      await axios.delete(getApiUrl(`/api/offers/delete/${id}`), {
         headers: { Authorization: `Bearer ${adminToken}` }
       });
       console.log('✅ Offer deleted successfully');
@@ -383,7 +384,7 @@ const OffersManagement = () => {
                 <CardMedia
                   component="img"
                   height="200"
-                  image={`http://localhost:5001${offer.imageUrl}`}
+                  image={getImageUrl(offer.imageUrl)}
                   alt={offer.title}
                   sx={{ 
                     objectFit: 'cover',
@@ -467,7 +468,7 @@ const OffersManagement = () => {
                   <TableRow key={offer._id}>
                     <TableCell>
                       <Avatar
-                        src={`http://localhost:5001${offer.imageUrl}`}
+                        src={getImageUrl(offer.imageUrl)}
                         alt={offer.title}
                         sx={{ width: 56, height: 56 }}
                       >

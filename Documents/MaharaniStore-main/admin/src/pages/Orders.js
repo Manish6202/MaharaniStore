@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import websocketService from '../services/websocket';
+import { getApiUrl } from '../config/api';
 import {
   Box,
   Card,
@@ -56,7 +57,7 @@ const Orders = () => {
       
       console.log('📦 Fetching orders:', params.toString());
       
-      const res = await axios.get(`/api/orders?${params.toString()}`, {
+      const res = await axios.get(getApiUrl(`/api/orders?${params.toString()}`), {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
       
@@ -112,7 +113,7 @@ const Orders = () => {
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
-      await axios.put(`/api/orders/${orderId}/status`, { status: newStatus }, {
+      await axios.put(getApiUrl(`/api/orders/${orderId}/status`), { status: newStatus }, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
       fetchOrders(page, statusFilter);

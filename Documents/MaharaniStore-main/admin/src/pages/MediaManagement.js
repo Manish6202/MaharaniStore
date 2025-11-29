@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { CloudUpload, Image, Delete } from '@mui/icons-material';
 import axios from 'axios';
+import { getApiUrl } from '../config/api';
 
 const MediaManagement = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -55,7 +56,7 @@ const MediaManagement = () => {
       formData.append('headerImage', selectedFile);
       formData.append('title', imageTitle || 'Header Image');
 
-      const response = await axios.post('/api/media/upload-header', formData, {
+      const response = await axios.post(getApiUrl('/api/media/upload-header'), formData, {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'multipart/form-data'

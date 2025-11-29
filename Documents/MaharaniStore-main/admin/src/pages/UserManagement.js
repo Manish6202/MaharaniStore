@@ -12,6 +12,7 @@ import {
   Block, CheckCircle, Cancel, FilterList, Sort
 } from '@mui/icons-material';
 import axios from 'axios';
+import { getApiUrl } from '../config/api';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -50,7 +51,7 @@ const UserManagement = () => {
         sortOrder: sortOrder
       });
 
-      const response = await axios.get(`/api/admin/users?${params}`, {
+      const response = await axios.get(getApiUrl(`/api/admin/users?${params}`), {
         headers: { Authorization: `Bearer ${adminToken}` }
       });
       
@@ -73,7 +74,7 @@ const UserManagement = () => {
   const fetchUserStats = async () => {
     try {
       console.log('📊 Fetching user statistics...');
-      const response = await axios.get('/api/admin/users/stats', {
+      const response = await axios.get(getApiUrl('/api/admin/users/stats'), {
         headers: { Authorization: `Bearer ${adminToken}` }
       });
       

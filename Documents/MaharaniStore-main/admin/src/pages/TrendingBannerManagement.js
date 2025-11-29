@@ -12,6 +12,7 @@ import {
   ShoppingCart, Category, Label, Link as LinkIcon, LocalOffer
 } from '@mui/icons-material';
 import axios from 'axios';
+import { getApiUrl, getImageUrl } from '../config/api';
 
 const TrendingBannerManagement = () => {
   const [banners, setBanners] = useState([]);
@@ -53,7 +54,7 @@ const TrendingBannerManagement = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get('/api/trending-banner/admin/all', {
+      const response = await axios.get(getApiUrl('/api/trending-banner/admin/all'), {
         headers: { Authorization: `Bearer ${adminToken}` }
       });
       
@@ -72,7 +73,7 @@ const TrendingBannerManagement = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('/api/trending-banner/admin/products', {
+      const response = await axios.get(getApiUrl('/api/trending-banner/admin/products'), {
         headers: { Authorization: `Bearer ${adminToken}` }
       });
       
@@ -86,7 +87,7 @@ const TrendingBannerManagement = () => {
 
   const fetchSubcategories = async () => {
     try {
-      const response = await axios.get('/api/trending-banner/admin/subcategories', {
+      const response = await axios.get(getApiUrl('/api/trending-banner/admin/subcategories'), {
         headers: { Authorization: `Bearer ${adminToken}` }
       });
       
@@ -100,7 +101,7 @@ const TrendingBannerManagement = () => {
 
   const fetchOffers = async () => {
     try {
-      const response = await axios.get('/api/trending-banner/admin/offers', {
+      const response = await axios.get(getApiUrl('/api/trending-banner/admin/offers'), {
         headers: { Authorization: `Bearer ${adminToken}` }
       });
       
@@ -145,7 +146,7 @@ const TrendingBannerManagement = () => {
       endDate: banner.endDate ? new Date(banner.endDate).toISOString().split('T')[0] : '',
       isActive: banner.isActive
     });
-    setImagePreview(banner.backgroundImage ? `http://localhost:5001/${banner.backgroundImage}` : null);
+    setImagePreview(banner.backgroundImage ? getImageUrl(banner.backgroundImage) : null);
     setOpenDialog(true);
   };
 
@@ -178,14 +179,14 @@ const TrendingBannerManagement = () => {
 
       let response;
       if (editingBanner) {
-        response = await axios.put(`/api/trending-banner/admin/update/${editingBanner._id}`, formDataToSend, {
+        response = await axios.put(getApiUrl(`/api/trending-banner/admin/update/${editingBanner._id}`), formDataToSend, {
           headers: { 
             Authorization: `Bearer ${adminToken}`,
             'Content-Type': 'multipart/form-data'
           }
         });
       } else {
-        response = await axios.post('/api/trending-banner/admin/create', formDataToSend, {
+        response = await axios.post(getApiUrl('/api/trending-banner/admin/create'), formDataToSend, {
           headers: { 
             Authorization: `Bearer ${adminToken}`,
             'Content-Type': 'multipart/form-data'
@@ -209,7 +210,7 @@ const TrendingBannerManagement = () => {
     if (!window.confirm('Are you sure you want to delete this banner?')) return;
 
     try {
-      const response = await axios.delete(`/api/trending-banner/admin/delete/${id}`, {
+      const response = await axios.delete(getApiUrl(`/api/trending-banner/admin/delete/${id}`), {
         headers: { Authorization: `Bearer ${adminToken}` }
       });
       
@@ -328,7 +329,7 @@ const TrendingBannerManagement = () => {
                 <TableRow key={banner._id}>
                   <TableCell>
                     <Avatar
-                      src={banner.backgroundImage ? `http://localhost:5001/${banner.backgroundImage}` : ''}
+                      src={banner.backgroundImage ? getImageUrl(banner.backgroundImage) : ''}
                       alt={banner.title}
                       sx={{ width: 60, height: 40 }}
                       variant="rounded"

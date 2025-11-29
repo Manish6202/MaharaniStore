@@ -1,6 +1,5 @@
 import io from 'socket.io-client';
-
-const WS_BASE_URL = process.env.REACT_APP_WS_URL || 'http://localhost:5001';
+import { WS_BASE_URL } from '../config/api';
 
 class WebSocketService {
   constructor() {

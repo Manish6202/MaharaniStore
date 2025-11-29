@@ -1,12 +1,13 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { getApiUrl } from '../../config/api';
 
 // Async thunks for API calls
 export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',
   async (_, { getState }) => {
     const token = localStorage.getItem('adminToken');
-    const response = await axios.get('/api/products', {
+    const response = await axios.get(getApiUrl('/api/products'), {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;
@@ -21,7 +22,7 @@ export const fetchProductsByCategory = createAsyncThunk(
     if (subcategory) {
       url += `/${subcategory}`;
     }
-    const response = await axios.get(url, {
+    const response = await axios.get(getApiUrl(url), {
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;
@@ -46,7 +47,7 @@ export const addProduct = createAsyncThunk(
       formData.append('images', productData.image);
     }
     
-    const response = await axios.post('/api/products', formData, {
+    const response = await axios.post(getApiUrl('/api/products'), formData, {
       headers: { 
         Authorization: `Bearer ${token}`,
         'Content-Type': 'multipart/form-data',
@@ -74,7 +75,7 @@ export const updateProduct = createAsyncThunk(
       formData.append('images', productData.image);
     }
     
-    const response = await axios.put(`/api/products/${id}`, formData, {
+    const response = await axios.put(getApiUrl(`/api/products/${id}`), formData, {
       headers: { 
         Authorization: `Bearer ${token}`,
         'Content-Type': 'multipart/form-data',
@@ -88,7 +89,7 @@ export const deleteProduct = createAsyncThunk(
   'products/deleteProduct',
   async (productId, { getState }) => {
     const token = localStorage.getItem('adminToken');
-    await axios.delete(`/api/products/${productId}`, {
+    await axios.delete(getApiUrl(`/api/products/${productId}`), {
       headers: { Authorization: `Bearer ${token}` },
     });
     return productId;
