@@ -1,19 +1,20 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL, DEV_API_BASE_URL } from '@env';
 
-// Platform-specific base URL
-// For Android emulator: use 10.0.2.2
-// For Android physical device: use your computer's IP address (e.g., 192.168.1.100)
-// For iOS simulator: use localhost
-// For iOS physical device: use your computer's IP address
-const BASE_URL = Platform.select({
-  ios: __DEV__ ? 'http://localhost:5001/api' : 'http://localhost:5001/api',
-  android: __DEV__ ? 'http://10.0.2.2:5001/api' : 'http://10.0.2.2:5001/api',
-});
+// Environment-driven base URL
+// Production: https://maharanistore.onrender.com
+// Development: Use DEV_API_BASE_URL from .env or fallback to localhost
+const getBaseURL = () => {
+  const baseUrl = __DEV__ 
+    ? (DEV_API_BASE_URL || 'http://localhost:5001')
+    : (API_BASE_URL || 'https://maharanistore.onrender.com');
+  
+  // Ensure URL ends with /api
+  return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+};
 
-// Alternative: Use environment variable or config
-// You can also set this dynamically based on your network
-// const BASE_URL = 'http://YOUR_COMPUTER_IP:5001/api';
+const BASE_URL = getBaseURL();
 
 // API utility function
 const apiCall = async (endpoint, options = {}) => {
@@ -102,6 +103,17 @@ export const authAPI = {
     return result;
   },
 
+  // Google Sign-In
+  googleSignIn: async (googleData) => {
+    console.log('🔐 Google Sign-In with data:', { ...googleData, idToken: '***' });
+    const result = await apiCall('/users/google-signin', {
+      method: 'POST',
+      body: JSON.stringify(googleData),
+    });
+    console.log('🔐 Google Sign-In result:', result);
+    return result;
+  },
+
   // Get user profile
   getUserProfile: async (token) => {
     return await apiCall('/users/profile', {
@@ -172,10 +184,12 @@ export const productAPI = {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
 
-    const baseImageUrl = Platform.select({
-      ios: 'http://localhost:5001/',
-      android: 'http://10.0.2.2:5001/',
-    });
+    // Use environment variable for image base URL
+    const baseUrl = __DEV__ 
+      ? (DEV_API_BASE_URL || 'http://localhost:5001')
+      : (API_BASE_URL || 'https://maharanistore.onrender.com');
+    
+    const baseImageUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
 
     return `${baseImageUrl}${imagePath}`;
   },
@@ -334,6 +348,38 @@ export const orderAPI = {
     return await apiCall(`/orders/${orderId}/status`, {
       method: 'PUT',
       body: JSON.stringify(statusData)
+    });
+  },
+};
+
+// Location API functions
+export const locationAPI = {
+  // Reverse geocode - Convert coordinates to address
+  reverseGeocode: async (latitude, longitude) => {
+    return await apiCall('/location/reverse-geocode', {
+      method: 'POST',
+      body: JSON.stringify({ latitude, longitude }),
+    });
+  },
+
+  // Get user's current location
+  getUserLocation: async (token) => {
+    return await apiCall('/location/current', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+  },
+
+  // Update user's current location
+  updateUserLocation: async (token, locationData) => {
+    return await apiCall('/location/update', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(locationData),
     });
   },
 };

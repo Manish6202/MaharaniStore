@@ -17,8 +17,10 @@ import {
   Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { authAPI, userProfileAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { GOOGLE_WEB_CLIENT_ID, GOOGLE_ICON_URL } from '../config/googleConfig';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +37,15 @@ const LoginScreen = ({ navigation }) => {
   const otpInputRefs = useRef([]);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Configure Google Sign-In on mount
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID,
+      offlineAccess: true,
+      forceCodeForRefreshToken: true,
+    });
+  }, []);
 
   const handleSendOTP = async () => {
     if (!phone || phone.length !== 10) {
@@ -197,22 +208,78 @@ const LoginScreen = ({ navigation }) => {
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
-      // For now, show alert - you can integrate Google Sign-In SDK here
-      Alert.alert(
-        'Google Login',
-        'Google Sign-In will be available soon. Please use phone number login for now.',
-        [{ text: 'OK' }]
-      );
-      // TODO: Integrate @react-native-google-signin/google-signin
-      // const { idToken } = await GoogleSignin.signIn();
-      // const result = await authAPI.googleLogin(idToken);
-      // if (result.success) {
-      //   await login(result.data.user, result.data.token);
-      //   navigation.replace('Home');
-      // }
+      // Check if Google Play Services are available (Android)
+      if (Platform.OS === 'android') {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      }
+
+      // Sign in with Google
+      const userInfo = await GoogleSignin.signIn();
+      console.log('✅ Google Sign-In Success:', userInfo);
+
+      // Get ID token
+      const idToken = userInfo.data?.idToken;
+      if (!idToken) {
+        throw new Error('No ID token received from Google');
+      }
+
+      // Send to backend for verification and user creation
+      const result = await authAPI.googleSignIn({
+        idToken: idToken,
+        email: userInfo.data?.user?.email,
+        name: userInfo.data?.user?.name,
+        photo: userInfo.data?.user?.photo,
+      });
+
+      if (result.success && result.data) {
+        // Save token
+        const token = result.data.token || result.data.accessToken;
+        if (token) {
+          await AsyncStorage.setItem('authToken', token);
+        }
+
+        // Get user profile
+        const profile = result.data.user || result.data;
+        setSuccessUserName(profile.name || profile.email || 'User');
+        
+        // Show success modal
+        Animated.parallel([
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            tension: 50,
+            friction: 7,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start();
+
+        setShowSuccessModal(true);
+
+        // Navigate to home after delay
+        setTimeout(() => {
+          handleCloseSuccessModal();
+          navigation.replace('Home');
+        }, 2000);
+      } else {
+        throw new Error(result.message || 'Google sign-in failed');
+      }
     } catch (error) {
       console.error('❌ Google Login Error:', error);
-      Alert.alert('Error', 'Google login failed. Please try again.');
+      
+      if (error.code === 'SIGN_IN_CANCELLED') {
+        // User cancelled the sign-in
+        console.log('User cancelled Google sign-in');
+      } else if (error.code === 'IN_PROGRESS') {
+        Alert.alert('Info', 'Google sign-in is already in progress');
+      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+        Alert.alert('Error', 'Google Play Services not available. Please update Google Play Services.');
+      } else {
+        Alert.alert('Error', error.message || 'Google login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -328,16 +395,23 @@ const LoginScreen = ({ navigation }) => {
 
                 {/* Google Login Button */}
                 <TouchableOpacity 
-                  style={styles.googleButton}
+                  style={[styles.googleButton, loading && styles.googleButtonDisabled]}
                   onPress={handleGoogleLogin}
                   activeOpacity={0.8}
+                  disabled={loading}
                 >
-                  <Image 
-                    source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDZ94dsV873GpE2rh1_8nTEe7sLuzr9BCCs5l9k29xj-FjJmceLRNLw_vfKlsSV6hmH17nAX166Dyg5AeBSDlTGPGqMKlAdPw5PIxO6MWqLBrtArgjYbJXpahR1Pba3TohuSana8xS59nfbl023XFR-gsZNgdpHLZJ86Q6KcqiGnPShMEEpzu60qdTwR-pZpTwt7j9G8gNstsDipvWJiynJ64QvfBWJ2Ky9qNrnfjA0Fc0u4MBEH7OKSystMABH5bsdljjqHZJBUA' }}
-                    style={styles.googleIcon}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+                  {loading ? (
+                    <ActivityIndicator color="#333333" size="small" />
+                  ) : (
+                    <>
+                      <Image 
+                        source={{ uri: GOOGLE_ICON_URL }}
+                        style={styles.googleIcon}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.googleButtonText}>Continue with Google</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </>
             ) : (
@@ -664,6 +738,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.07,
     shadowRadius: 12,
     elevation: 2,
+  },
+  googleButtonDisabled: {
+    opacity: 0.6,
   },
   googleIcon: {
     width: 24,

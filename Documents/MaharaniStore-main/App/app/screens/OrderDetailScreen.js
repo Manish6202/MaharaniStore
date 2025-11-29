@@ -310,6 +310,19 @@ const OrderDetailScreen = ({ route, navigation }) => {
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
+          {(order.orderStatus === 'out_for_delivery' || order.orderStatus === 'preparing' || order.orderStatus === 'ready') && (
+            <TouchableOpacity
+              style={styles.trackButton}
+              onPress={() => {
+                navigation.navigate('OrderTracking', {
+                  orderId: order._id,
+                  orderNumber: order.orderNumber,
+                });
+              }}
+            >
+              <Text style={styles.trackButtonText}>Track Order</Text>
+            </TouchableOpacity>
+          )}
           {order.orderStatus === 'pending' && (
             <TouchableOpacity
               style={styles.cancelButton}
@@ -622,6 +635,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 24,
     gap: 12,
+    flexWrap: 'wrap',
+  },
+  trackButton: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 8,
+    backgroundColor: '#FF9933',
+    marginBottom: 8,
+  },
+  trackButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   cancelButton: {
     flex: 1,

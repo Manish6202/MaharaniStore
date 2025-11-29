@@ -15,6 +15,7 @@ import LoginScreen from "./app/screens/LoginScreen";
 import BottomTabNavigator from "./app/navigation/BottomTabNavigator";
 import ProductDetailScreen from "./app/screens/ProductDetailScreen";
 import GroceryScreen from "./app/screens/GroceryScreen";
+import CosmeticsScreen from "./app/screens/CosmeticsScreen";
 import CartScreen from "./app/screens/CartScreen";
 import CheckoutScreen from "./app/screens/CheckoutScreen";
 import OrdersScreen from "./app/screens/OrdersScreen";
@@ -27,6 +28,9 @@ import PaymentOptionsScreen from "./app/screens/PaymentOptionsScreen";
 import ReviewOrderScreen from "./app/screens/ReviewOrderScreen";
 import PaymentSuccessScreen from "./app/screens/PaymentSuccessScreen";
 import NoInternetScreen from "./app/screens/NoInternetScreen";
+import SearchScreen from "./app/screens/SearchScreen";
+import ErrorScreen from "./app/screens/ErrorScreen";
+import OrderTrackingScreen from "./app/screens/OrderTrackingScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -77,6 +81,13 @@ export default function App() {
           <Stack.Screen
             name="Grocery"
             component={GroceryScreen}
+            options={{ headerShown: false }}
+          />
+
+          {/* Cosmetics Screen */}
+          <Stack.Screen
+            name="Cosmetics"
+            component={CosmeticsScreen}
             options={{ headerShown: false }}
           />
 
@@ -159,6 +170,27 @@ export default function App() {
           <Stack.Screen
             name="NoInternet"
             component={NoInternetScreen}
+            options={{ headerShown: false }}
+          />
+          
+          {/* Search Screen */}
+          <Stack.Screen
+            name="Search"
+            component={SearchScreen}
+            options={{ headerShown: false }}
+          />
+          
+          {/* Error Screen */}
+          <Stack.Screen
+            name="Error"
+            component={ErrorScreen}
+            options={{ headerShown: false }}
+          />
+          
+          {/* Order Tracking Screen */}
+          <Stack.Screen
+            name="OrderTracking"
+            component={OrderTrackingScreen}
             options={{ headerShown: false }}
           />
           

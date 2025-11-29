@@ -14,92 +14,98 @@ import {
 } from 'react-native';
 import { productAPI } from '../services/api';
 import { useCart } from '../context/CartContext';
-import FilterScreen from './FilterScreen';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2; // 2 columns with padding
 
-const GroceryScreen = ({ navigation, route }) => {
+const CosmeticsScreen = ({ navigation, route }) => {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
-  const categoryFromRoute = route?.params?.category || 'Snacks & Beverages';
+  const categoryFromRoute = route?.params?.category || 'Skincare';
   const [selectedCategory, setSelectedCategory] = useState(categoryFromRoute);
   const [loading, setLoading] = useState(true);
-  const [filterVisible, setFilterVisible] = useState(false);
-  const [appliedFilters, setAppliedFilters] = useState({});
   const { addToCart, totalItems } = useCart();
 
   const categories = [
     'All',
-    'Vegetables',
-    'Fruits',
-    'Dairy & Breads',
-    'Snacks & Beverages',
-    'Pantry Staples',
-    'Frozen',
-    'Household',
+    'Skincare',
+    'Makeup',
+    'Hair Care',
+    'Fragrances',
+    'Body Care',
+    'Men\'s Grooming',
+    'Wellness',
   ];
 
-  // Sample products data matching HTML
+  // Sample cosmetics products data
   const sampleProducts = [
     {
-      _id: '1',
-      name: 'Classic Potato Chips',
-      brand: 'Lays',
-      price: 30,
-      originalPrice: 35,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA-41JdxF4twZU4pX8rncZPPgYqyu8J1Wx98HaObtnA525TB17M0HJqPQ27XOKk5q45ASREPUdSF951IcyGEpUpVJQoR6rg-zM3v7LUAzyt1IWBwpjdQ1VwBhmNYwCTx-xbE766XouXJchmFL3OfMQyzsKrcZKBtgavtMMSXVkTt8DpJ-7RsalUvWuhOf3uS1Zd3r5o7lriQ67N-OaWE9HfhFfvLupDVEjyYx9FGE76_vZKCHV2LNDzADbcx_bGvNuaecP8DBQvjQ',
+      _id: '101',
+      name: 'MAHARANI Glow Serum',
+      brand: 'Kesar Beauty',
+      price: 1249,
+      originalPrice: 1499,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAnpa_7E741Q2uVLK5AZK2plr9FX1OeP7btYDTZ-O3GjFZc2wupRZoa6VwWpf8DBQzkEDjyWubvetF2Mau4xSEi8IxSMVpDlfmGWLYA5N32zKsEuWcxp5LGU4jqh6QFiRi25wXr2tz_cTJWVIm0fyw_TqcuxS2vXlkIHEL81PhtKcsR7C1tr4zAwCHO7GgWTI3TTrljtVrG2BdZgGzIuUHAP7vFlHDd5U11gSW5y2xe5KDD0SQ6rIUjx08cDRVYiQBY7KkUgHCT2A',
     },
     {
-      _id: '2',
-      name: 'Classic Cola 750ml',
-      brand: 'Coca-Cola',
-      price: 40,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDUzD-auCSW_CZEEh5qZIlzwYvubS8R6WRFil1db0XMIPAe12SA56lg3D9aWxEa-WpmHVVYZ0Nkjyr6VUnk4JgBd_5jdE0mTs29iKYLWQ2q9chadooJoaMnac694WtuaLuFUYFHn0CLznBxNXM3cEmxjKJNMLhh3TyhWHqB-R2rBSmJ8kS8Xr77EdZn7KsdW0r9gDjsHwJuppSUquhXcs0Be8v-60FR-pCcs1O74kxQPiKTar6uBnv1aHsUYSvSYMK2ppRqqgdA7g',
+      _id: '102',
+      name: 'Hydrating Face Cream',
+      brand: 'Lakme',
+      price: 599,
+      originalPrice: 799,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD-18ZNel0vrmEyrmHyicSrA8anPGmoBD78iFhXaDBaWJ5HNKje6bVZLIWJvyIkbWI2WmLJ5su1EDifKBdFIyTLk-OouYCde3vVVW9VzSi_ftX-TEFjYvj9riE9MStvdedJ3qat5L5aPOQwqEoCM1hqO1LarfjcLXvaHSj3Lg78gLFYLFxf3eXzwDin0OgRkaI68eOvF6EHTrNaEiL9GbWk1cHM6I1VY1Fh8YzbXlxSFF4ER1M-ZRomm57EPfPwON-NIwtbHOtFRA',
     },
     {
-      _id: '3',
-      name: 'Original Glucose Biscuits Family Pack',
-      brand: 'Parle-G',
-      price: 50,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDH-rCLIqzy4-PLaDzFaiekki-Sf9HpyK3YgMtg2maKDE5xUGhw-OZabPtdgaWtk538c5C8Cwre_fzZ5TA0A04SkNQwB7Bjyjze7NcHYBdMyMIdogtxJ6yXpOMCzXTdr4OHOEczBCe7jlY2ptFRUYIOu2Twzv4SBX6pj-m7yQqQZOaUfRwKUmNiIz-l1FwqBCKCaNrCocVdBK9dUdZTDKZy2tKtgw2DlCql1onu3uagGHg0zWbe7DvEnUGRt_gbKegqEW5TrrDgUQ',
+      _id: '103',
+      name: 'Matte Lipstick - Red',
+      brand: 'Maybelline',
+      price: 299,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASzo-Uv-8fd37j0b6zmKLWccqteTEgW9NhrWoUVU-S7HFAJnHhuhRm0_CKqAPRNIbeBmWeojHggP9SvKcrrm2frKHLtVJM-M0MrzQjzYIu8YKbf8pJ0Nw0ypKbZGA5Gk9MpGgGH1ckU6XQruC3V9Waw6fe9opl9qCew_Ykha6wr_90ibgl-XHlQ6fU0I6nC-B2YUbc245h1fno-sWDLzH7U0dgKcFpiQhRF3duSZkNTU351FbueXOqqF0q9-YzRoqf08_z_OkT1A',
     },
     {
-      _id: '4',
-      name: 'Bhujia Sev Indian Snack',
-      brand: "Haldiram's",
-      price: 65,
-      originalPrice: 70,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCIQCxGyX7h6LdqoqO8P9zXlyqtT5tcsQlTgtJu39XfPdbKLvO0dibCTD08SeKEjyoJLCsNtHvp7QhA3Ewspn2WmWdHiXL9Ur8O4XNaSIJGR5tv371iyjOgGI1JECUz7RYIYbOOmFIaGO4yfi3VPvQ2Q4N8KDty6gO447aZuqlTGxddSrDhQ1xaan6i43JsmJK1G5UY5Q9_JUs41jOwwZmlhA9yjMWqwa4w2u_IuOYAx-cD0lPCoMFcXily37-ii_kAyaTv97Zn9A',
+      _id: '104',
+      name: 'Anti-Dandruff Shampoo',
+      brand: 'Head & Shoulders',
+      price: 199,
+      originalPrice: 249,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBPKg0cUzpGvwNpzWLUuwunbVOM5UvTN70JxZqVH0WfqitYH4B6tabIMjmAtf8BKmGD5SYPMVt65UD_eqNiJ8lxpTcr8RTddZwO4jWmg00gdBt5HpnNNayx9O9SgHwN-BN2mLvpemwwzbVGb_E3L0EPX8b65Apj1mXD-SY88ZweiS5LCG7sNEI2GRklwzctqW1ZpA4km1XbZGRXN39Dz9zHj6T38KP8WyMRgySeus4CSQzi-qXSVQljrlSeIx-fT38bTpEnIejucg',
     },
     {
-      _id: '5',
-      name: 'Orange Delight Juice 1L',
-      brand: 'Tropicana',
-      price: 120,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBcSKO3IXt-KXbHuv4Wl0kHkl3XTNoaYwduUUJK-JWzuWQwpDHNYUJnJeG4B-PEmr8-ZLl0h5aUiEK2NXCrqWRfVIFKFWJkLQSD9ZxlH0quUsJ-TBRtlMozk8qm2SdS-kOLvFC_Oy5HTKwLf2bcXyE_l-HygA9Xk08CFr4qdIC2dKpeCUnyE_Su3qeP-HG5-GvlwN1UjWvK959m-ONhXECAA8jCbFexSGdMLBcPOVgRlrcmvIZhWpBsBKe1V61Bgn_vsFQIPr4lqQ',
+      _id: '105',
+      name: 'Perfume - Floral',
+      brand: 'Fogg',
+      price: 499,
+      originalPrice: 699,
+      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAIKpTc4ajLPXGQXLRrG4T85nfrZOs0_NQ9YZ5VeVx35PwJyNTKzeL6qlqio5nK9kJnJPnaAPS-DudfIOOKnyIa81qMVbNw4ILKo_-NrwgE0O3PTiylqJHH8TpEQeHQkLin7Qiqq3a2OBd0nY1GjS35nmzVrnPVzoW6iP5dvyjgi5O0NFdvjFMBJwL14pJrc8Zu15W0aSvll8cFdi21Ll9k095UXlhor7eJTyYK86fxb-hm_3JqxYTJZpr3vN5fmtpdQzRJu-juVw',
     },
   ];
 
   useEffect(() => {
-    loadGroceryProducts();
+    loadCosmeticsProducts();
   }, []);
 
-  const loadGroceryProducts = async () => {
+  const loadCosmeticsProducts = async () => {
     try {
       setLoading(true);
-      const result = await productAPI.getProductsByCategory('Grocery');
-      console.log('🛒 Grocery products loaded:', result);
+      const result = await productAPI.getProductsByCategory('Cosmetics');
+      console.log('💄 Cosmetics products loaded:', result);
       if (result.success && result.data && result.data.length > 0) {
         setProducts(result.data);
         setFilteredProducts(result.data);
       } else {
-        // Use sample products if API returns empty
-        setProducts(sampleProducts);
-        setFilteredProducts(sampleProducts);
+        // Try Beauty category
+        const beautyResult = await productAPI.getProductsByCategory('Beauty');
+        if (beautyResult.success && beautyResult.data && beautyResult.data.length > 0) {
+          setProducts(beautyResult.data);
+          setFilteredProducts(beautyResult.data);
+        } else {
+          // Use sample products if API returns empty
+          setProducts(sampleProducts);
+          setFilteredProducts(sampleProducts);
+        }
       }
     } catch (error) {
-      console.error('❌ Error loading grocery products:', error);
+      console.error('❌ Error loading cosmetics products:', error);
       // Use sample products on error
       setProducts(sampleProducts);
       setFilteredProducts(sampleProducts);
@@ -122,13 +128,13 @@ const GroceryScreen = ({ navigation, route }) => {
         // Match main category or subcategory
         return productCategory.toLowerCase().includes(categoryLower) ||
                productSubcategory.toLowerCase().includes(categoryLower) ||
-               (category === 'Vegetables' && (productCategory.includes('Vegetable') || productSubcategory.includes('Vegetable'))) ||
-               (category === 'Fruits' && (productCategory.includes('Fruit') || productSubcategory.includes('Fruit'))) ||
-               (category === 'Dairy & Breads' && (productCategory.includes('Dairy') || productCategory.includes('Bakery'))) ||
-               (category === 'Snacks & Beverages' && (productCategory.includes('Snack') || productCategory.includes('Beverage'))) ||
-               (category === 'Pantry Staples' && (productCategory.includes('Staple') || productCategory.includes('Pantry'))) ||
-               (category === 'Frozen' && productCategory.includes('Frozen')) ||
-               (category === 'Household' && productCategory.includes('Household'));
+               (category === 'Skincare' && (productCategory.includes('Skin') || productSubcategory.includes('Skin'))) ||
+               (category === 'Makeup' && (productCategory.includes('Makeup') || productSubcategory.includes('Makeup'))) ||
+               (category === 'Hair Care' && (productCategory.includes('Hair') || productSubcategory.includes('Hair'))) ||
+               (category === 'Fragrances' && (productCategory.includes('Fragrance') || productSubcategory.includes('Perfume'))) ||
+               (category === 'Body Care' && (productCategory.includes('Body') || productSubcategory.includes('Body'))) ||
+               (category === 'Men\'s Grooming' && (productCategory.includes('Men') || productSubcategory.includes('Men'))) ||
+               (category === 'Wellness' && (productCategory.includes('Wellness') || productSubcategory.includes('Wellness')));
       });
       setFilteredProducts(filtered);
     }
@@ -207,14 +213,8 @@ const GroceryScreen = ({ navigation, route }) => {
         >
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Grocery</Text>
+        <Text style={styles.headerTitle}>Cosmetics</Text>
         <View style={styles.headerRight}>
-          <TouchableOpacity 
-            style={styles.headerButton}
-            onPress={() => setFilterVisible(true)}
-          >
-            <Text style={styles.headerIcon}>🔧</Text>
-          </TouchableOpacity>
           <TouchableOpacity 
             style={styles.headerButton}
             onPress={() => navigation.navigate('Search')}
@@ -245,7 +245,7 @@ const GroceryScreen = ({ navigation, route }) => {
         <View style={styles.bannerContainer}>
           <Image 
             source={{ 
-              uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDprHGCaNs6zBVY4vqd7sRIjw0xkkGWMGNBxrKPswygXcBTrXDWQloq4ncD6TkgSOC5_zJdv9lY4JnusH0wZAvnAVsowYAWygwQE6iL-v3fKF8Lgn3Hs5i4ne0LIWKjcI--VyghSAa5R3jgr1zYM9cThBh3GETLrDvObsKTHJKbGom6Dv0fQ71Puj-xSA7vB0V5dC1agDXYgQMq3CyQ9IaM9asp6ZDUMvXtmZoRqBes2SiqL_U3vbOddv9Isg4bkwri2V6EcSPJMQ'
+              uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBPKg0cUzpGvwNpzWLUuwunbVOM5UvTN70JxZqVH0WfqitYH4B6tabIMjmAtf8BKmGD5SYPMVt65UD_eqNiJ8lxpTcr8RTddZwO4jWmg00gdBt5HpnNNayx9O9SgHwN-BN2mLvpemwwzbVGb_E3L0EPX8b65Apj1mXD-SY88ZweiS5LCG7sNEI2GRklwzctqW1ZpA4km1XbZGRXN39Dz9zHj6T38KP8WyMRgySeus4CSQzi-qXSVQljrlSeIx-fT38bTpEnIejucg'
             }}
             style={styles.bannerImage}
             resizeMode="cover"
@@ -293,18 +293,6 @@ const GroceryScreen = ({ navigation, route }) => {
           />
         </View>
       </ScrollView>
-
-      {/* Filter Modal */}
-      <FilterScreen
-        visible={filterVisible}
-        onClose={() => setFilterVisible(false)}
-        onApply={(filters) => {
-          setAppliedFilters(filters);
-          // Apply filters to products
-          console.log('Applied filters:', filters);
-        }}
-        initialFilters={appliedFilters}
-      />
     </SafeAreaView>
   );
 };
@@ -517,4 +505,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GroceryScreen;
+export default CosmeticsScreen;
+

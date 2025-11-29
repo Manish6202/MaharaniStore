@@ -19,6 +19,9 @@ const WishlistScreen = ({ navigation }) => {
   const { items, loading, syncWithBackend, removeFromWishlist } = useWishlist();
   const { addToCart } = useCart();
   const [refreshing, setRefreshing] = useState(false);
+  const [sortBy, setSortBy] = useState(null); // 'price-asc', 'price-desc', null
+  const [filterInStock, setFilterInStock] = useState(false);
+  const [filterOnSale, setFilterOnSale] = useState(false);
 
   useEffect(() => {
     syncWithBackend();
@@ -67,6 +70,53 @@ const WishlistScreen = ({ navigation }) => {
   const handleProductPress = (product) => {
     navigation.navigate('ProductDetail', { productId: product._id });
   };
+
+  // Filter and Sort Handlers
+  const handleSortByPrice = () => {
+    if (sortBy === null) {
+      setSortBy('price-asc');
+    } else if (sortBy === 'price-asc') {
+      setSortBy('price-desc');
+    } else {
+      setSortBy(null);
+    }
+  };
+
+  const handleFilterInStock = () => {
+    setFilterInStock(!filterInStock);
+  };
+
+  const handleFilterOnSale = () => {
+    setFilterOnSale(!filterOnSale);
+  };
+
+  // Filter and Sort Logic
+  const getFilteredAndSortedItems = () => {
+    let filtered = [...items];
+
+    // Filter by In Stock
+    if (filterInStock) {
+      filtered = filtered.filter(item => item.stock > 0);
+    }
+
+    // Filter by On Sale
+    if (filterOnSale) {
+      filtered = filtered.filter(item => {
+        return item.originalPrice && item.originalPrice > item.price;
+      });
+    }
+
+    // Sort by Price
+    if (sortBy === 'price-asc') {
+      filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
+    } else if (sortBy === 'price-desc') {
+      filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
+    }
+
+    return filtered;
+  };
+
+  const filteredItems = getFilteredAndSortedItems();
 
   const renderProductCard = (item, isFirst = false) => {
     const imageUrl = item.images?.[0]
@@ -165,16 +215,59 @@ const WishlistScreen = ({ navigation }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtersContent}
         >
-          <TouchableOpacity style={styles.filterChip}>
-            <Text style={styles.filterChipText}>Sort by Price</Text>
-            <Text style={styles.filterChipArrow}>▼</Text>
+          <TouchableOpacity 
+            style={[
+              styles.filterChip,
+              sortBy && styles.filterChipActive
+            ]}
+            onPress={handleSortByPrice}
+          >
+            <Text style={[
+              styles.filterChipText,
+              sortBy && styles.filterChipTextActive
+            ]}>
+              Sort by Price
+            </Text>
+            <Text style={[
+              styles.filterChipArrow,
+              sortBy && styles.filterChipArrowActive
+            ]}>
+              {sortBy === 'price-asc' ? '▲' : sortBy === 'price-desc' ? '▼' : '▼'}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <Text style={styles.filterChipText}>In Stock</Text>
-            <Text style={styles.filterChipArrow}>▼</Text>
+          <TouchableOpacity 
+            style={[
+              styles.filterChip,
+              filterInStock && styles.filterChipActive
+            ]}
+            onPress={handleFilterInStock}
+          >
+            <Text style={[
+              styles.filterChipText,
+              filterInStock && styles.filterChipTextActive
+            ]}>
+              In Stock
+            </Text>
+            <Text style={[
+              styles.filterChipArrow,
+              filterInStock && styles.filterChipArrowActive
+            ]}>
+              ▼
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <Text style={styles.filterChipText}>On Sale</Text>
+          <TouchableOpacity 
+            style={[
+              styles.filterChip,
+              filterOnSale && styles.filterChipActive
+            ]}
+            onPress={handleFilterOnSale}
+          >
+            <Text style={[
+              styles.filterChipText,
+              filterOnSale && styles.filterChipTextActive
+            ]}>
+              On Sale
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -201,8 +294,23 @@ const WishlistScreen = ({ navigation }) => {
             <ActivityIndicator size="large" color="#FF9933" />
             <Text style={styles.loadingText}>Loading wishlist...</Text>
           </View>
+        ) : filteredItems.length > 0 ? (
+          filteredItems.map((item, index) => renderProductCard(item, index === 0))
         ) : items.length > 0 ? (
-          items.map((item, index) => renderProductCard(item, index === 0))
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>No items match your filters</Text>
+            <Text style={styles.emptySubtext}>Try adjusting your filters</Text>
+            <TouchableOpacity
+              style={styles.clearFiltersButton}
+              onPress={() => {
+                setSortBy(null);
+                setFilterInStock(false);
+                setFilterOnSale(false);
+              }}
+            >
+              <Text style={styles.clearFiltersButtonText}>Clear Filters</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <View style={styles.emptyState}>
             <View style={styles.emptyIconContainer}>
@@ -221,14 +329,22 @@ const WishlistScreen = ({ navigation }) => {
       </ScrollView>
 
       {/* Sticky Footer CTA */}
-      {items.length > 0 && inStockCount > 0 && (
+      {filteredItems.length > 0 && filteredItems.filter(item => item.stock > 0).length > 0 && (
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.addAllButton}
-            onPress={handleAddAllToCart}
+            onPress={() => {
+              const inStockFiltered = filteredItems.filter(item => item.stock > 0);
+              if (inStockFiltered.length === 0) {
+                Alert.alert('No Items Available', 'All filtered items are out of stock.');
+                return;
+              }
+              inStockFiltered.forEach(item => addToCart(item));
+              Alert.alert('Added to Cart', `${inStockFiltered.length} item(s) added to your cart.`);
+            }}
           >
             <Text style={styles.addAllButtonText}>
-              Add All to Cart ({inStockCount})
+              Add All to Cart ({filteredItems.filter(item => item.stock > 0).length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -302,14 +418,24 @@ const styles = StyleSheet.create({
     borderRadius: 9999,
     backgroundColor: '#E5E7EB',
   },
+  filterChipActive: {
+    backgroundColor: '#FF9933',
+  },
   filterChipText: {
     fontSize: 14,
     fontWeight: '500',
     color: '#111827',
   },
+  filterChipTextActive: {
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
   filterChipArrow: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  filterChipArrowActive: {
+    color: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -485,6 +611,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  clearFiltersButton: {
+    height: 40,
+    paddingHorizontal: 20,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  clearFiltersButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
   },
   footer: {
     position: 'absolute',

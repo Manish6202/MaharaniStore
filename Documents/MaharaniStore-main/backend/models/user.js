@@ -116,6 +116,36 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  currentLocation: {
+    latitude: {
+      type: Number,
+      default: null
+    },
+    longitude: {
+      type: Number,
+      default: null
+    },
+    location: {
+      type: String,
+      default: ''
+    },
+    city: {
+      type: String,
+      default: ''
+    },
+    state: {
+      type: String,
+      default: ''
+    },
+    pincode: {
+      type: String,
+      default: ''
+    },
+    updatedAt: {
+      type: Date,
+      default: null
+    }
+  },
   otp: {
     type: String,
     default: null

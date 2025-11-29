@@ -14,6 +14,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
 const offerRoutes = require('./routes/offerRoutes');
 const trendingBannerRoutes = require('./routes/trendingBannerRoutes');
+const locationRoutes = require('./routes/locationRoutes');
 const PORT = process.env.PORT || 5001;
 
 const app = express();
@@ -57,6 +58,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/trending-banner', trendingBannerRoutes);
+app.use('/api/location', locationRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

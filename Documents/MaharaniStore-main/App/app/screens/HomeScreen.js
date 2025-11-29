@@ -11,16 +11,22 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import LinearGradient from 'react-native-linear-gradient';
 import { useCart } from '../context/CartContext';
-import { productAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { productAPI, locationAPI } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
   const { addToCart } = useCart();
-  const [location] = useState('Jayanagar, Bengaluru');
+  const { token, isAuthenticated } = useAuth();
+  const [location, setLocation] = useState('Loading location...');
+  const [locationLoading, setLocationLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('Vegetables');
   const [flashSaleProducts] = useState([
     {
@@ -75,6 +81,115 @@ const HomeScreen = ({ navigation }) => {
 
   const [countdowns, setCountdowns] = useState({});
   const countdownInterval = useRef(null);
+
+  // Request location permission and fetch location
+  useEffect(() => {
+    fetchUserLocation();
+  }, [isAuthenticated, token]);
+
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'Maharani Store needs access to your location to show nearby delivery areas.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn('Location permission error:', err);
+        return false;
+      }
+    }
+    return true; // iOS handles permissions automatically
+  };
+
+  const fetchUserLocation = async () => {
+    try {
+      setLocationLoading(true);
+
+      // First, try to get saved location from backend
+      if (isAuthenticated && token) {
+        try {
+          const savedLocation = await locationAPI.getUserLocation(token);
+          if (savedLocation.success && savedLocation.data.location) {
+            setLocation(savedLocation.data.location);
+            setLocationLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.log('No saved location found, fetching current location...');
+        }
+      }
+
+      // Request location permission
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        setLocation('Location permission denied');
+        setLocationLoading(false);
+        return;
+      }
+
+      // Get current position
+      Geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          
+          try {
+            // Reverse geocode to get address
+            const geocodeResult = await locationAPI.reverseGeocode(latitude, longitude);
+            
+            if (geocodeResult.success && geocodeResult.data) {
+              const locationText = geocodeResult.data.location;
+              setLocation(locationText);
+
+              // Save location to backend if user is authenticated
+              if (isAuthenticated && token) {
+                try {
+                  await locationAPI.updateUserLocation(token, {
+                    latitude,
+                    longitude,
+                    location: locationText,
+                    city: geocodeResult.data.city,
+                    state: geocodeResult.data.state,
+                    pincode: geocodeResult.data.pincode,
+                  });
+                } catch (error) {
+                  console.log('Failed to save location:', error);
+                }
+              }
+            } else {
+              setLocation('Unable to get location');
+            }
+          } catch (error) {
+            console.error('Geocoding error:', error);
+            setLocation('Location unavailable');
+          }
+          
+          setLocationLoading(false);
+        },
+        (error) => {
+          console.error('Location error:', error);
+          setLocation('Location unavailable');
+          setLocationLoading(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 10000,
+        }
+      );
+    } catch (error) {
+      console.error('Location fetch error:', error);
+      setLocation('Location unavailable');
+      setLocationLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Initialize countdowns
@@ -141,31 +256,50 @@ const HomeScreen = ({ navigation }) => {
         </View>
 
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
+        <TouchableOpacity 
+          style={styles.searchContainer}
+          onPress={() => navigation.navigate('Search')}
+          activeOpacity={0.8}
+        >
           <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search for products..."
-            placeholderTextColor="#666666"
-          />
+          <Text style={styles.searchInputPlaceholder}>Search for products...</Text>
           <View style={styles.searchActions}>
-            <TouchableOpacity style={styles.searchActionButton}>
+            <TouchableOpacity 
+              style={styles.searchActionButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                // Handle voice search
+              }}
+            >
               <Text style={styles.searchActionIcon}>🎤</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.searchActionButton}>
+            <TouchableOpacity 
+              style={styles.searchActionButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                // Handle image search
+              }}
+            >
               <Text style={styles.searchActionIcon}>📷</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Location */}
-        <View style={styles.locationContainer}>
-          <Text style={styles.locationIcon}>📍</Text>
+        <TouchableOpacity 
+          style={styles.locationContainer}
+          onPress={fetchUserLocation}
+        >
+          {locationLoading ? (
+            <ActivityIndicator size="small" color="#FF9933" style={{ marginRight: 8 }} />
+          ) : (
+            <Text style={styles.locationIcon}>📍</Text>
+          )}
           <Text style={styles.locationText}>
             Delivering to: <Text style={styles.locationValue}>{location}</Text>
           </Text>
           <Text style={styles.expandIcon}>▼</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <ScrollView 
@@ -212,7 +346,7 @@ const HomeScreen = ({ navigation }) => {
 
           <TouchableOpacity 
             style={[styles.categoryTile, styles.cosmeticsTile]}
-            onPress={() => navigation.navigate('Categories')}
+            onPress={() => navigation.navigate('Cosmetics')}
           >
             <Image 
               source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAcdtE4b7HIFKADBUvxxay5rBq3HaEMxhzcVyxZj3dYAPLY5-bXbyFNq7Iq0GsUwECoeLaLFge7VVgpXhZeVieE8b9bw4dmG0azfy89-lkVwDepjEe0Mh-K6q-7ilDdD-ezGf9FpII0XEAGB_22spLY0OCqnjdvx3Y1bpvj-r-CgLqnnD08Lj58twz3NhYMZofT9oJ0alAYCJoH2vYdD_Q2OSgYTrDMxuFUow7tmKqKSAFwbmmFE5-wtyCGSdB0pJaakEj1kYAAbQ' }}
@@ -424,10 +558,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#666666',
   },
-  searchInput: {
+  searchInputPlaceholder: {
     flex: 1,
     fontSize: 14,
-    color: '#333333',
+    color: '#666666',
     padding: 0,
   },
   searchActions: {
