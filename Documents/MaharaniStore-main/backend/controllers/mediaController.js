@@ -1,18 +1,17 @@
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinary');
 
-// Configure multer for image uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = 'uploads/headers/';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, 'header-' + Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname));
+// Configure multer with Cloudinary storage for header images
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'maharani-store/headers',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [
+      { width: 1920, height: 400, crop: 'limit' },
+      { quality: 'auto' }
+    ]
   }
 });
 
@@ -23,7 +22,7 @@ const upload = multer({
   },
   fileFilter: function (req, file, cb) {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const extname = allowedTypes.test(file.originalname.toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
     
     if (mimetype && extname) {
@@ -44,7 +43,8 @@ exports.uploadHeaderImage = async (req, res) => {
       });
     }
 
-    const imageUrl = `/uploads/headers/${req.file.filename}`;
+    // Cloudinary returns secure_url in file.path
+    const imageUrl = req.file.path;
     
     res.status(200).json({
       success: true,
@@ -68,51 +68,19 @@ exports.uploadHeaderImage = async (req, res) => {
 };
 
 // Get current header image
+// Note: With Cloudinary, you'll need to store the latest header image URL in database
+// For now, returning a message that header images are stored in Cloudinary
 exports.getCurrentHeaderImage = async (req, res) => {
   try {
-    const headerDir = 'uploads/headers/';
-    
-    if (!fs.existsSync(headerDir)) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          imageUrl: '/uploads/headers/default-header.jpg',
-          isDefault: true
-        }
-      });
-    }
-
-    const files = fs.readdirSync(headerDir);
-    const imageFiles = files.filter(file => {
-      const ext = path.extname(file).toLowerCase();
-      return ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext);
-    });
-
-    if (imageFiles.length === 0) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          imageUrl: '/uploads/headers/default-header.jpg',
-          isDefault: true
-        }
-      });
-    }
-
-    // Get the most recent file
-    const sortedFiles = imageFiles.sort((a, b) => {
-      const statA = fs.statSync(path.join(headerDir, a));
-      const statB = fs.statSync(path.join(headerDir, b));
-      return statB.mtime - statA.mtime;
-    });
-
-    const latestFile = sortedFiles[0];
-    
+    // With Cloudinary, header images are stored in cloud
+    // You may want to store the latest header image URL in database
+    // For now, returning a default response
     res.status(200).json({
       success: true,
       data: {
-        imageUrl: `/uploads/headers/${latestFile}`,
-        filename: latestFile,
-        isDefault: false
+        imageUrl: null,
+        isDefault: true,
+        message: 'Header images are stored in Cloudinary. Upload a new header image to set it.'
       }
     });
   } catch (error) {

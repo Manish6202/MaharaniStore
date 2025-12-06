@@ -1,15 +1,22 @@
 const Product = require('../models/Product');
 const multer = require('multer');
-const path = require('path');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinary');
 
-// Configure multer for image upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/products/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'product-' + uniqueSuffix + path.extname(file.originalname));
+// Configure multer with Cloudinary storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    return {
+      folder: 'maharani-store/products',
+      // Don't restrict formats here, let multer fileFilter handle it
+      transformation: [
+        { width: 800, height: 800, crop: 'limit' },
+        { quality: 'auto' }
+      ],
+      // Use original filename with timestamp
+      public_id: `product-${Date.now()}-${Math.round(Math.random() * 1E9)}`
+    };
   }
 });
 
@@ -32,12 +39,17 @@ const addProduct = async (req, res) => {
   try {
     const { name, description, price, stock, mainCategory, subcategory, unit, brand, isActive } = req.body;
     
-    // Get uploaded image paths
-    let images = req.files ? req.files.map(file => file.path) : [];
+    // Get uploaded image URLs from Cloudinary
+    let images = [];
+    if (req.files && req.files.length > 0) {
+      // Cloudinary returns secure_url in file.path
+      images = req.files.map(file => file.path);
+    }
     
-    // If no images uploaded, use placeholder
+    // If no images uploaded, use placeholder (optional)
     if (images.length === 0) {
-      images = ['uploads/products/placeholder-image.jpg'];
+      // You can set a default Cloudinary image URL here if needed
+      images = [];
     }
 
     const product = new Product({

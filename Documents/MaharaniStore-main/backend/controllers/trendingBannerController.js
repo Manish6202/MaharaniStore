@@ -2,16 +2,19 @@ const TrendingBanner = require('../models/TrendingBanner');
 const Product = require('../models/Product');
 const Offer = require('../models/Offer');
 const multer = require('multer');
-const path = require('path');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinary');
 
-// Configure multer for image uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/trending-banners/');
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'banner-' + uniqueSuffix + path.extname(file.originalname));
+// Configure multer with Cloudinary storage for trending banners
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'maharani-store/trending-banners',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [
+      { width: 1200, height: 600, crop: 'limit' },
+      { quality: 'auto' }
+    ]
   }
 });
 
@@ -22,7 +25,7 @@ const upload = multer({
   },
   fileFilter: function (req, file, cb) {
     const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const extname = allowedTypes.test(file.originalname.toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
     
     if (mimetype && extname) {
@@ -116,7 +119,7 @@ const createBanner = async (req, res) => {
       title,
       subtitle,
       buttonText: buttonText || 'Shop Now',
-      backgroundImage: req.file ? req.file.path : (req.body.backgroundImage || ''),
+      backgroundImage: req.file ? req.file.path : (req.body.backgroundImage || ''), // Cloudinary secure_url
       linkType,
       linkId: linkType !== 'none' ? linkId : undefined,
       linkLabel: linkType !== 'none' ? linkLabel : undefined,
@@ -149,7 +152,18 @@ const updateBanner = async (req, res) => {
 
     // Handle image update
     if (req.file) {
-      updateData.backgroundImage = req.file.path;
+      // Delete old image from Cloudinary if it exists
+      const existingBanner = await TrendingBanner.findById(id);
+      if (existingBanner && existingBanner.backgroundImage && existingBanner.backgroundImage.includes('cloudinary.com')) {
+        try {
+          const urlParts = existingBanner.backgroundImage.split('/');
+          const publicId = urlParts.slice(-2).join('/').split('.')[0];
+          await cloudinary.uploader.destroy(publicId);
+        } catch (error) {
+          console.error('Error deleting old banner image from Cloudinary:', error);
+        }
+      }
+      updateData.backgroundImage = req.file.path; // Cloudinary secure_url
     }
 
     // Validate link if provided
@@ -203,14 +217,27 @@ const deleteBanner = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const banner = await TrendingBanner.findByIdAndDelete(id);
-
+    const banner = await TrendingBanner.findById(id);
+    
     if (!banner) {
       return res.status(404).json({
         success: false,
         message: 'Banner not found'
       });
     }
+
+    // Delete image from Cloudinary if it's a Cloudinary URL
+    if (banner.backgroundImage && banner.backgroundImage.includes('cloudinary.com')) {
+      try {
+        const urlParts = banner.backgroundImage.split('/');
+        const publicId = urlParts.slice(-2).join('/').split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      } catch (error) {
+        console.error('Error deleting banner image from Cloudinary:', error);
+      }
+    }
+
+    await TrendingBanner.findByIdAndDelete(id);
 
     res.status(200).json({
       success: true,

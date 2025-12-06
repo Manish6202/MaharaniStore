@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
+const cloudinary = require('../config/cloudinary');
 const { 
   addProduct, 
   getAllProducts,
@@ -66,6 +67,21 @@ router.put('/:id', verifyToken, adminOnly, upload.array('images', 5), async (req
 
     // Update images if new ones are provided
     if (req.files && req.files.length > 0) {
+      // Delete old images from Cloudinary if they are Cloudinary URLs
+      if (product.images && product.images.length > 0) {
+        for (const oldImageUrl of product.images) {
+          if (oldImageUrl && oldImageUrl.includes('cloudinary.com')) {
+            try {
+              const urlParts = oldImageUrl.split('/');
+              const publicId = urlParts.slice(-2).join('/').split('.')[0];
+              await cloudinary.uploader.destroy(publicId);
+            } catch (error) {
+              console.error('Error deleting old product image from Cloudinary:', error);
+            }
+          }
+        }
+      }
+      // Set new images (Cloudinary returns secure_url in file.path)
       product.images = req.files.map(file => file.path);
     }
 
@@ -95,6 +111,21 @@ router.delete('/:id', verifyToken, adminOnly, async (req, res) => {
         success: false,
         message: 'Product not found'
       });
+    }
+
+    // Delete images from Cloudinary if they are Cloudinary URLs
+    if (product.images && product.images.length > 0) {
+      for (const imageUrl of product.images) {
+        if (imageUrl && imageUrl.includes('cloudinary.com')) {
+          try {
+            const urlParts = imageUrl.split('/');
+            const publicId = urlParts.slice(-2).join('/').split('.')[0];
+            await cloudinary.uploader.destroy(publicId);
+          } catch (error) {
+            console.error('Error deleting product image from Cloudinary:', error);
+          }
+        }
+      }
     }
 
     await Product.findByIdAndDelete(req.params.id);

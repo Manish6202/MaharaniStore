@@ -1,22 +1,19 @@
 const Offer = require('../models/Offer');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinary');
 
-// Create uploads directory if it doesn't exist
-const UPLOADS_DIR = path.join(__dirname, '../uploads/offers');
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
-
-// Configure multer for offer images
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, UPLOADS_DIR);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `offer-${Date.now()}${path.extname(file.originalname)}`);
-  },
+// Configure multer with Cloudinary storage for offer images
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'maharani-store/offers',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [
+      { width: 1200, height: 600, crop: 'limit' },
+      { quality: 'auto' }
+    ]
+  }
 });
 
 const upload = multer({
@@ -25,7 +22,7 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const filetypes = /jpeg|jpg|png|gif|webp/;
     const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const extname = filetypes.test(file.originalname.toLowerCase());
 
     if (mimetype && extname) {
       return cb(null, true);
@@ -54,7 +51,7 @@ exports.createOffer = async (req, res) => {
         discount,
         timeIcon: timeIcon || '⏰',
         timeText,
-        imageUrl: `/uploads/offers/${req.file.filename}`,
+        imageUrl: req.file.path, // Cloudinary returns secure_url in file.path
         gradient: gradient ? JSON.parse(gradient) : ['#FF6B6B', '#FF8E53'],
         order: order || 0
       };
@@ -139,15 +136,21 @@ exports.updateOffer = async (req, res) => {
 
       // If new image is uploaded
       if (req.file) {
-        // Delete old image
+        // Delete old image from Cloudinary if it's a Cloudinary URL
         const existingOffer = await Offer.findById(id);
         if (existingOffer && existingOffer.imageUrl) {
-          const oldImagePath = path.join(__dirname, '..', existingOffer.imageUrl);
-          if (fs.existsSync(oldImagePath)) {
-            fs.unlinkSync(oldImagePath);
+          // Extract public_id from Cloudinary URL if it's a Cloudinary URL
+          if (existingOffer.imageUrl.includes('cloudinary.com')) {
+            try {
+              const urlParts = existingOffer.imageUrl.split('/');
+              const publicId = urlParts.slice(-2).join('/').split('.')[0];
+              await cloudinary.uploader.destroy(publicId);
+            } catch (error) {
+              console.error('Error deleting old image from Cloudinary:', error);
+            }
           }
         }
-        updateData.imageUrl = `/uploads/offers/${req.file.filename}`;
+        updateData.imageUrl = req.file.path; // Cloudinary secure_url
       }
 
       const offer = await Offer.findByIdAndUpdate(
@@ -191,11 +194,14 @@ exports.deleteOffer = async (req, res) => {
       });
     }
 
-    // Delete image file
-    if (offer.imageUrl) {
-      const imagePath = path.join(__dirname, '..', offer.imageUrl);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
+    // Delete image from Cloudinary if it's a Cloudinary URL
+    if (offer.imageUrl && offer.imageUrl.includes('cloudinary.com')) {
+      try {
+        const urlParts = offer.imageUrl.split('/');
+        const publicId = urlParts.slice(-2).join('/').split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      } catch (error) {
+        console.error('Error deleting image from Cloudinary:', error);
       }
     }
 
